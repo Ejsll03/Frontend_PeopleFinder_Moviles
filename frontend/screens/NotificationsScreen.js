@@ -48,6 +48,7 @@ export default function NotificationsScreen({ navigation, route }) {
   const [notifications, setNotifications] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [pendingActionId, setPendingActionId] = React.useState(null);
 
   const loadNotifications = React.useCallback(async (isRefresh = false) => {
     if (!apiBaseUrl) return;
@@ -124,6 +125,80 @@ export default function NotificationsScreen({ navigation, route }) {
     }
   };
 
+  const resolveTargetUserId = (notification) => {
+    return (
+      notification?.data?.userId ||
+      notification?.actor?._id ||
+      notification?.actor?.id ||
+      ''
+    );
+  };
+
+  const respondFriendRequest = async (notification, direction) => {
+    const targetUserId = resolveTargetUserId(notification);
+    if (!targetUserId) {
+      Alert.alert('Error', 'No se pudo identificar al usuario de la solicitud.');
+      return;
+    }
+
+    try {
+      setPendingActionId(notification._id);
+
+      const response = await fetch(`${apiBaseUrl}/friends/swipe`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUserId,
+          direction,
+        }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Error', payload.error || 'No se pudo responder la solicitud.');
+        return;
+      }
+
+      const decision = direction === 'right' ? 'accepted' : 'rejected';
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item._id === notification._id
+            ? {
+                ...item,
+                isRead: true,
+                readAt: item.readAt || new Date().toISOString(),
+                friendRequestHandled: true,
+                friendRequestDecision: decision,
+              }
+            : item
+        )
+      );
+
+      if (direction === 'right') {
+        Alert.alert('Solicitud aceptada', payload.message || 'Ahora pueden conversar.');
+      }
+    } catch (_error) {
+      Alert.alert('Error de conexión', 'No se pudo responder la solicitud.');
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
+  const openChats = (notification) => {
+    const openChatId = notification?.data?.chatId || '';
+    const openWithUserId = resolveTargetUserId(notification);
+
+    navigation?.navigate('Main', {
+      screen: 'Chats',
+      params: {
+        openChatId,
+        openWithUserId,
+      },
+    });
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
@@ -169,6 +244,39 @@ export default function NotificationsScreen({ navigation, route }) {
                 <Text style={styles.itemTitle}>{item.title}</Text>
                 {!!item.body && <Text style={styles.itemBody}>{item.body}</Text>}
                 <Text style={styles.itemDate}>{formatDate(item.createdAt)}</Text>
+
+                {item.type === 'friend_request' && !item.friendRequestHandled ? (
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity
+                      onPress={() => respondFriendRequest(item, 'left')}
+                      activeOpacity={0.8}
+                      disabled={pendingActionId === item._id}
+                      style={[styles.actionBtn, styles.rejectBtn, pendingActionId === item._id && styles.actionBtnDisabled]}
+                    >
+                      <Text style={styles.rejectBtnText}>Rechazar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => respondFriendRequest(item, 'right')}
+                      activeOpacity={0.8}
+                      disabled={pendingActionId === item._id}
+                      style={[styles.actionBtn, styles.acceptBtn, pendingActionId === item._id && styles.actionBtnDisabled]}
+                    >
+                      <Text style={styles.acceptBtnText}>Aceptar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
+                {(item.type === 'friend_match' || item.type === 'message') ? (
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity
+                      onPress={() => openChats(item)}
+                      activeOpacity={0.8}
+                      style={[styles.actionBtn, styles.chatBtn]}
+                    >
+                      <Text style={styles.chatBtnText}>Conversar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </View>
               {!item.isRead && <View style={styles.dotUnread} />}
             </TouchableOpacity>
@@ -229,6 +337,31 @@ const createStyles = (Colors) => StyleSheet.create({
   itemTitle: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.text },
   itemBody: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, marginTop: 2, lineHeight: 17 },
   itemDate: { fontFamily: Fonts.sans, fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 6 },
+  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  actionBtn: {
+    minWidth: 90,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  actionBtnDisabled: { opacity: 0.6 },
+  acceptBtn: {
+    backgroundColor: 'rgba(34,197,94,0.16)',
+    borderColor: 'rgba(34,197,94,0.4)',
+  },
+  rejectBtn: {
+    backgroundColor: 'rgba(239,68,68,0.14)',
+    borderColor: 'rgba(239,68,68,0.4)',
+  },
+  chatBtn: {
+    backgroundColor: 'rgba(6,182,212,0.14)',
+    borderColor: 'rgba(6,182,212,0.4)',
+  },
+  acceptBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.green },
+  rejectBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.red },
+  chatBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.cyan },
   dotUnread: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.purple, marginTop: 6 },
   centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   emptyTitle: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: Colors.text, marginTop: 10 },

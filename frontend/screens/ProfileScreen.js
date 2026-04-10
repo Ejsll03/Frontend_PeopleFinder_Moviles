@@ -649,6 +649,20 @@ export default function ProfileScreen({ navigation, currentUser, setCurrentUser,
         return;
       }
 
+      const nextEmailVerified = Boolean(
+        payload?.emailVerified ?? payload?.user?.emailVerified ?? userData.emailVerified
+      );
+
+      setCurrentUser?.((prev) => ({
+        ...(prev || {}),
+        emailVerified: nextEmailVerified,
+      }));
+
+      setUserData((prev) => ({
+        ...prev,
+        emailVerified: nextEmailVerified,
+      }));
+
       Alert.alert('Listo', payload.message || 'Te enviamos un correo de verificación.');
     } catch (error) {
       Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');

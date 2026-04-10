@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { io } from 'socket.io-client/dist/socket.io.js';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -102,6 +103,60 @@ function TabIcon({ focused, icon, label, uiColors }) {
 // ─── Tab Navigator (pantallas principales) ────────────────────────────────────
 function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
   const uiColors = AppTheme[themeMode] || AppTheme.dark;
+  const [unreadMessages, setUnreadMessages] = React.useState(0);
+
+  const loadUnreadSummary = React.useCallback(async () => {
+    if (!currentUser?.id && !currentUser?._id) {
+      setUnreadMessages(0);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/chats/unread-summary`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const payload = await response.json();
+      if (!response.ok) return;
+
+      setUnreadMessages(Number(payload?.unreadMessages || 0));
+    } catch (_error) {
+      // Ignorado: mantenemos el ultimo contador valido.
+    }
+  }, [currentUser]);
+
+  React.useEffect(() => {
+    loadUnreadSummary();
+    const timer = setInterval(loadUnreadSummary, 6000);
+    return () => clearInterval(timer);
+  }, [loadUnreadSummary]);
+
+  React.useEffect(() => {
+    const userId = currentUser?.id || currentUser?._id;
+    if (!userId) return undefined;
+
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket'],
+      withCredentials: true,
+      auth: { userId: String(userId) },
+      reconnection: true,
+    });
+
+    const refreshUnread = () => {
+      loadUnreadSummary();
+    };
+
+    socket.on('chat_updated', refreshUnread);
+    socket.on('chat_read', refreshUnread);
+    socket.on('new_message', refreshUnread);
+
+    return () => {
+      socket.off('chat_updated', refreshUnread);
+      socket.off('chat_read', refreshUnread);
+      socket.off('new_message', refreshUnread);
+      socket.disconnect();
+    };
+  }, [currentUser, loadUnreadSummary]);
 
   return (
     <Tab.Navigator
@@ -132,8 +187,27 @@ function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Chats" component={ChatScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="chatbubble-ellipses-outline" label="Chats" uiColors={uiColors} /> }} />
+      <Tab.Screen
+        name="Chats"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="chatbubble-ellipses-outline" label="Chats" uiColors={uiColors} />,
+          tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#EF4444',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: '700',
+          },
+        }}
+      >
+        {(props) => (
+          <ChatScreen
+            {...props}
+            apiBaseUrl={API_BASE_URL}
+            currentUser={currentUser}
+          />
+        )}
+      </Tab.Screen>
       <Tab.Screen
         name="Perfil"
         options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="person-circle-outline" label="Perfil" uiColors={uiColors} /> }}
