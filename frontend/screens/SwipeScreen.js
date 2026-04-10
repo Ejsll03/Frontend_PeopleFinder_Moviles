@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler'; // npm: react-native-gesture-handler
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors as BaseColors, Fonts, Radius, Shadows, useThemeMode } from '../theme';
 
 let Colors = BaseColors;
@@ -291,6 +291,19 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
     else handleSwipeLeft();
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch(`${apiBaseUrl}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (_error) {
+      // Ignorado: hacemos logout local aunque falle la red.
+    }
+
+    navigation?.reset({ index: 0, routes: [{ name: 'Login' }] });
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
@@ -301,8 +314,8 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
           <Text style={styles.topTitle}>Descubrir</Text>
           <Text style={styles.topSub}>▲ {profiles.length} personas disponibles</Text>
         </View>
-        <TouchableOpacity style={styles.filterBtn}>
-          <Ionicons name="options-outline" size={18} color={Colors.textMuted} />
+        <TouchableOpacity style={styles.filterBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color={Colors.red} />
         </TouchableOpacity>
       </View>
 
@@ -342,25 +355,13 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
 
       {/* Botones de acción */}
       <View style={styles.actionsRow}>
-        <ActionBtn onPress={() => triggerSwipe('left')} size={56} bg="rgba(239,68,68,0.12)" bc="rgba(239,68,68,0.3)" glowColor="#EF4444">
+        <ActionBtn onPress={() => triggerSwipe('left')} size={68} bg="rgba(239,68,68,0.12)" bc="rgba(239,68,68,0.3)" glowColor="#EF4444">
           <Ionicons name="close" size={24} color={Colors.red} />
         </ActionBtn>
 
-        <ActionBtn onPress={() => {}} size={40} bg="rgba(234,179,8,0.12)" bc="rgba(234,179,8,0.3)" glowColor="#FCD34D">
-          <Ionicons name="star" size={18} color={Colors.yellow} />
-        </ActionBtn>
-
-        <ActionBtn onPress={() => triggerSwipe('right')} size={72} bg={undefined} bc="transparent" glowColor={Colors.accent}>
-          <LinearGradient colors={[Colors.accent, Colors.accentPink]} style={[StyleSheet.absoluteFill, { borderRadius: 36 }]} />
+        <ActionBtn onPress={() => triggerSwipe('right')} size={68} bg={undefined} bc="transparent" glowColor={Colors.accent}>
+          <LinearGradient colors={[Colors.accent, Colors.accentPink]} style={[StyleSheet.absoluteFill, { borderRadius: 34 }]} />
           <Ionicons name="heart" size={30} color="#fff" style={{ zIndex: 1 }} />
-        </ActionBtn>
-
-        <ActionBtn onPress={() => {}} size={40} bg="rgba(6,182,212,0.12)" bc="rgba(6,182,212,0.3)" glowColor={Colors.accentCyan}>
-          <Ionicons name="arrow-undo" size={16} color={Colors.cyan} />
-        </ActionBtn>
-
-        <ActionBtn onPress={() => navigation?.navigate('Chats')} size={56} bg="rgba(124,58,237,0.12)" bc="rgba(124,58,237,0.3)" glowColor={Colors.accent}>
-          <MaterialCommunityIcons name="account-group-outline" size={20} color={Colors.purple} />
         </ActionBtn>
       </View>
 
@@ -383,7 +384,7 @@ const createStyles = (Colors) => StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 14 },
   emptyTitle: { fontFamily: Fonts.display, fontSize: 20, color: Colors.text, marginBottom: 6 },
   emptySub: { fontFamily: Fonts.sans, fontSize: 13, color: Colors.textMuted },
-  actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: 20, paddingBottom: 10 },
+  actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32, paddingHorizontal: 20, paddingBottom: 10 },
   actionBtn: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, overflow: 'hidden' },
   hint: { alignItems: 'center', paddingBottom: Platform?.OS === 'ios' ? 36 : 20, paddingTop: 6 },
   hintText: { fontFamily: Fonts.sans, fontSize: 11, color: 'rgba(255,255,255,0.18)', letterSpacing: 0.5 },

@@ -235,124 +235,111 @@ export default function ChatScreen() {
   const activeContact = CHATS.find(c => c.id === activeChat);
   const hasActiveChat = Boolean(activeContact);
 
+  const renderChatsList = () => (
+    <View style={styles.fullPane}>
+      <View style={styles.sideHead}>
+        <Text style={styles.sideTitle}>Mensajes</Text>
+        <View style={styles.searchWrap}>
+          <Text style={styles.searchIcon}>⌕</Text>
+          <TextInput style={styles.searchInput} placeholder="Buscar..." placeholderTextColor={Colors.textMuted} />
+        </View>
+      </View>
+
+      <FlatList
+        data={CHATS}
+        keyExtractor={c => c.id}
+        renderItem={({ item }) => (
+          <ChatItem chat={item} active={item.id === activeChat} onPress={() => setActiveChat(item.id)} />
+        )}
+        ListEmptyComponent={(
+          <View style={styles.emptyListWrap}>
+            <MaterialCommunityIcons name="chat-outline" size={22} color={Colors.textMuted} />
+            <Text style={styles.emptyListTitle}>Sin chats por ahora</Text>
+            <Text style={styles.emptyListSub}>Cuando tengas matches, aparecerán aquí.</Text>
+          </View>
+        )}
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
+  );
+
+  const renderActiveChat = () => (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fullPane}>
+      {/* Header */}
+      <View style={styles.chatHead}>
+        <TouchableOpacity style={styles.headBtn} onPress={() => setActiveChat(null)}>
+          <Ionicons name="arrow-back" size={16} color={Colors.textMuted} />
+        </TouchableOpacity>
+        <View style={{ position: 'relative' }}>
+          <View style={[styles.headAv, { backgroundColor: `${activeContact?.color}33` }]}> 
+            <Text style={[styles.headAvText, { color: activeContact?.accent }]}>{activeContact?.initials}</Text>
+          </View>
+          {activeContact?.online && <View style={styles.onlineDot} />}
+        </View>
+        <View style={styles.headInfo}>
+          <Text style={styles.headName}>{activeContact?.name}</Text>
+          <View style={styles.headStatus}>
+            <View style={styles.statusDot} />
+            <Text style={styles.headStatusText}>En línea ahora</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Mensajes */}
+      <FlatList
+        ref={flatRef}
+        data={messages}
+        keyExtractor={m => m.id}
+        renderItem={({ item }) => <MessageBubble message={item} />}
+        contentContainerStyle={styles.msgsList}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<View style={styles.dateSep}><Text style={styles.dateSepText}>Hoy</Text></View>}
+        ListFooterComponent={isTyping ? <TypingIndicator /> : null}
+      />
+
+      {/* Barra de input */}
+      <View style={styles.inputBar}>
+        <TouchableOpacity style={styles.iconBtn} onPress={sendImage}>
+          <Ionicons name="camera-outline" size={16} color={Colors.textMuted} />
+        </TouchableOpacity>
+        <View style={styles.inputWrap}>
+          <TextInput
+            style={styles.inputField}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Escribe algo..."
+            placeholderTextColor={Colors.textMuted}
+            multiline
+            onSubmitEditing={sendMessage}
+          />
+          <TouchableOpacity>
+            <Ionicons name="happy-outline" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity onPress={sendMessage} activeOpacity={0.8}>
+          <LinearGradient
+            colors={[Colors.accent, Colors.accentPink]}
+            style={[styles.sendBtn, Shadows.glow(Colors.accent, 12, 0.4)]}
+          >
+            <Ionicons name="send" size={16} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
-
-      <View style={styles.layout}>
-        {/* Sidebar */}
-        <View style={styles.sidebar}>
-          <View style={styles.sideHead}>
-            <Text style={styles.sideTitle}>Mensajes</Text>
-            <View style={styles.searchWrap}>
-              <Text style={styles.searchIcon}>⌕</Text>
-              <TextInput style={styles.searchInput} placeholder="Buscar..." placeholderTextColor={Colors.textMuted} />
-            </View>
-          </View>
-          <FlatList
-            data={CHATS}
-            keyExtractor={c => c.id}
-            renderItem={({ item }) => (
-              <ChatItem chat={item} active={item.id === activeChat} onPress={() => setActiveChat(item.id)} />
-            )}
-            ListEmptyComponent={(
-              <View style={styles.emptyListWrap}>
-                <MaterialCommunityIcons name="chat-outline" size={22} color="rgba(255,255,255,0.28)" />
-                <Text style={styles.emptyListTitle}>Sin chats por ahora</Text>
-                <Text style={styles.emptyListSub}>Cuando tengas matches, aparecerán aquí.</Text>
-              </View>
-            )}
-            style={{ flex: 1 }}
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
-
-        {/* Panel de chat */}
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.mainChat}>
-          {!hasActiveChat ? (
-            <View style={styles.emptyChatWrap}>
-              <LinearGradient colors={["rgba(124,58,237,0.15)", "rgba(236,72,153,0.08)"]} style={styles.emptyChatCard}>
-                <Ionicons name="chatbubbles-outline" size={34} color="rgba(255,255,255,0.7)" />
-                <Text style={styles.emptyChatTitle}>Aún no tienes conversaciones</Text>
-                <Text style={styles.emptyChatSub}>Haz match con alguien para empezar tu primer chat.</Text>
-              </LinearGradient>
-            </View>
-          ) : (
-            <>
-          {/* Header */}
-          <View style={styles.chatHead}>
-            <View style={{ position: 'relative' }}>
-              <View style={[styles.headAv, { backgroundColor: `${activeContact?.color}33` }]}>
-                <Text style={[styles.headAvText, { color: activeContact?.accent }]}>{activeContact?.initials}</Text>
-              </View>
-              {activeContact?.online && <View style={styles.onlineDot} />}
-            </View>
-            <View style={styles.headInfo}>
-              <Text style={styles.headName}>{activeContact?.name}</Text>
-              <View style={styles.headStatus}>
-                <View style={styles.statusDot} />
-                <Text style={styles.headStatusText}>En línea ahora</Text>
-              </View>
-            </View>
-            <View style={styles.wsChip}>
-              <View style={styles.wsDot} />
-              <Text style={styles.wsText}>WS LIVE</Text>
-            </View>
-            <TouchableOpacity style={styles.headBtn}><Text style={{ color: Colors.textMuted, fontSize: 13 }}>⋯</Text></TouchableOpacity>
-          </View>
-
-          {/* Mensajes */}
-          <FlatList
-            ref={flatRef}
-            data={messages}
-            keyExtractor={m => m.id}
-            renderItem={({ item }) => <MessageBubble message={item} />}
-            contentContainerStyle={styles.msgsList}
-            showsVerticalScrollIndicator={false}
-            ListHeaderComponent={<View style={styles.dateSep}><Text style={styles.dateSepText}>Hoy</Text></View>}
-            ListFooterComponent={isTyping ? <TypingIndicator /> : null}
-          />
-
-          {/* Barra de input */}
-          <View style={styles.inputBar}>
-            <TouchableOpacity style={styles.iconBtn} onPress={sendImage}>
-              <Ionicons name="camera-outline" size={16} color={Colors.textMuted} />
-            </TouchableOpacity>
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.inputField}
-                value={input}
-                onChangeText={setInput}
-                placeholder="Escribe algo..."
-                placeholderTextColor={Colors.textMuted}
-                multiline
-                onSubmitEditing={sendMessage}
-              />
-              <TouchableOpacity>
-                <Ionicons name="happy-outline" size={16} color={Colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity onPress={sendMessage} activeOpacity={0.8}>
-              <LinearGradient
-                colors={[Colors.accent, Colors.accentPink]}
-                style={[styles.sendBtn, Shadows.glow(Colors.accent, 12, 0.4)]}
-              >
-                <Ionicons name="send" size={16} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-            </>
-          )}
-        </KeyboardAvoidingView>
-      </View>
+      {!hasActiveChat ? renderChatsList() : renderActiveChat()}
     </View>
   );
 }
 
 const createStyles = (Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  layout: { flex: 1, flexDirection: 'row', paddingTop: 56 },
-  sidebar: { width: 200, borderRightWidth: 1, borderRightColor: Colors.border },
+  fullPane: { flex: 1, paddingTop: 56 },
   sideHead: { padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
   sideTitle: { fontFamily: Fonts.display, fontSize: 18, color: Colors.text, marginBottom: 10 },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: 10, paddingVertical: 8 },
@@ -373,7 +360,6 @@ const createStyles = (Colors) => StyleSheet.create({
   unreadBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   unreadText: { fontFamily: Fonts.sansSemiBold, fontSize: 9, color: Colors.text },
   onlineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.green, position: 'absolute', bottom: 0, right: 0, borderWidth: 2, borderColor: Colors.card },
-  mainChat: { flex: 1 },
   emptyChatWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
   emptyChatCard: { width: '100%', borderRadius: 18, borderWidth: 1, borderColor: Colors.border, paddingVertical: 28, paddingHorizontal: 18, alignItems: 'center' },
   emptyChatTitle: { fontFamily: Fonts.display, fontSize: 19, color: Colors.text, marginTop: 10, textAlign: 'center' },

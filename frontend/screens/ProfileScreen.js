@@ -467,14 +467,33 @@ function AppearanceView({ mode, onChangeMode, onSave, onCancel }) {
       <View style={styles.editFields}>
         <View style={styles.privacyCard}>
           <Text style={styles.privacyGroupTitle}>Selecciona tema</Text>
-          <PrivacyOptionPills
-            value={mode}
-            onChange={onChangeMode}
-            options={[
-              { value: 'dark', label: 'Oscuro' },
-              { value: 'light', label: 'Claro' },
-            ]}
-          />
+          <View style={styles.appearanceRow}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => onChangeMode('dark')}
+              style={[styles.appearanceCard, mode === 'dark' && styles.appearanceCardSelected]}
+            >
+              <View style={[styles.appearancePreview, { backgroundColor: '#0A0818' }]}>
+                <View style={{ width: 46, height: 6, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.22)' }} />
+                <View style={{ width: 30, height: 6, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.14)', marginTop: 8 }} />
+              </View>
+              <Text style={styles.appearanceLabel}>Oscuro</Text>
+              <Text style={styles.appearanceMeta}>Contraste alto</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => onChangeMode('light')}
+              style={[styles.appearanceCard, mode === 'light' && styles.appearanceCardSelected]}
+            >
+              <View style={[styles.appearancePreview, { backgroundColor: '#F8FAFC', borderColor: 'rgba(15,23,42,0.08)', borderWidth: 1 }]}>
+                <View style={{ width: 46, height: 6, borderRadius: 4, backgroundColor: 'rgba(15,23,42,0.22)' }} />
+                <View style={{ width: 30, height: 6, borderRadius: 4, backgroundColor: 'rgba(15,23,42,0.14)', marginTop: 8 }} />
+              </View>
+              <Text style={styles.appearanceLabel}>Claro</Text>
+              <Text style={styles.appearanceMeta}>Más luminoso</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.privacySwitchSub}>Este ajuste se guarda en tu perfil y se aplica al abrir sesión.</Text>
         </View>
 
@@ -832,8 +851,8 @@ const createStyles = (Colors) => StyleSheet.create({
   privacyPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   privacyPill: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: Colors.border2,
+    backgroundColor: Colors.input,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -842,8 +861,29 @@ const createStyles = (Colors) => StyleSheet.create({
     borderColor: 'rgba(124,58,237,0.35)',
     backgroundColor: 'rgba(124,58,237,0.2)',
   },
-  privacyPillText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: 'rgba(255,255,255,0.65)' },
-  privacyPillTextActive: { color: Colors.text },
+  privacyPillText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: Colors.textSub },
+  privacyPillTextActive: { color: '#fff' },
+  appearanceRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  appearanceCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.border2,
+    backgroundColor: Colors.input,
+    borderRadius: 12,
+    padding: 10,
+  },
+  appearanceCardSelected: {
+    borderColor: 'rgba(124,58,237,0.45)',
+    backgroundColor: 'rgba(124,58,237,0.12)',
+  },
+  appearancePreview: {
+    height: 64,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  appearanceLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.text, marginTop: 8 },
+  appearanceMeta: { fontFamily: Fonts.sans, fontSize: 10, color: Colors.textMuted, marginTop: 2 },
   privacySwitchRow: {
     flexDirection: 'row',
     alignItems: 'center',
