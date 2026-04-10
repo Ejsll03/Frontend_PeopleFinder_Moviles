@@ -12,6 +12,7 @@ import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SwipeScreen from './screens/SwipeScreen';
 import ChatScreen from './screens/ChatScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -205,6 +206,14 @@ export default function App() {
                 <RegisterScreen
                   {...props}
                   onRegisterSuccess={handleAuthSuccess}
+                  apiBaseUrl={API_BASE_URL}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="ForgotPassword">
+              {(props) => (
+                <ForgotPasswordScreen
+                  {...props}
                   apiBaseUrl={API_BASE_URL}
                 />
               )}

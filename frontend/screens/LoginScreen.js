@@ -169,27 +169,10 @@ export default function LoginScreen({ navigation, onLoginSuccess, apiBaseUrl }) 
             <Field label="USUARIO O CORREO" value={email} onChangeText={setEmail} placeholder="usuario o correo" keyboardType="email-address" />
             <Field label="CONTRASEÑA" value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry />
             <PrimaryButton label={loading ? 'Ingresando...' : 'Entrar a PeopleFinder'} onPress={handleLogin} />
-            <TouchableOpacity style={styles.forgotBtn}>
+            <TouchableOpacity style={styles.forgotBtn} onPress={() => navigation?.navigate('ForgotPassword')}>
               <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
             </TouchableOpacity>
           </Animated.View>
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.divLine} />
-            <Text style={styles.divText}>O CONTINÚA CON</Text>
-            <View style={styles.divLine} />
-          </View>
-
-          {/* Sociales */}
-          <View style={styles.socialsRow}>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.75}>
-              <Text style={styles.socialText}>G  Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.75}>
-              <Text style={styles.socialText}> Apple</Text>
-            </TouchableOpacity>
-          </View>
 
           <TouchableOpacity style={styles.registerRow} onPress={() => navigation?.navigate('Register')}>
             <Text style={styles.registerText}>¿Sin cuenta? <Text style={{ color: colors.purple }}>Regístrate gratis</Text></Text>
@@ -239,16 +222,6 @@ const createStyles = (Colors) => StyleSheet.create({
   shimmer: { position: 'absolute', top: 0, bottom: 0, width: 80 },
   forgotBtn: { alignItems: 'center', marginTop: 14 },
   forgotText: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.purple },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 10 },
-  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.07)' },
-  divText: { fontFamily: Fonts.sansMedium, fontSize: 10, color: Colors.textMuted, letterSpacing: 1 },
-  socialsRow: { flexDirection: 'row', gap: 10 },
-  socialBtn: {
-    flex: 1, paddingVertical: 13, borderRadius: Radius.md,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
-  },
-  socialText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: Colors.textSub },
   registerRow: { alignItems: 'center', marginTop: 22 },
   registerText: { fontFamily: Fonts.sans, fontSize: 13, color: Colors.textMuted },
 });

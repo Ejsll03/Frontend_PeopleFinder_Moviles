@@ -183,7 +183,7 @@ const cardStyles = StyleSheet.create({
 });
 
 // ─── Botón de acción ──────────────────────────────────────────────────────────
-function ActionBtn({ onPress, size = 56, children, bg, border: bc, glowColor }) {
+function ActionBtn({ onPress, size = 56, children, bg, border: bc, glowColor, glow = true }) {
   const scale = useRef(new Animated.Value(1)).current;
   const press = () => {
     Animated.sequence([
@@ -194,10 +194,16 @@ function ActionBtn({ onPress, size = 56, children, bg, border: bc, glowColor }) 
   };
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
+      {/** En Android reducimos artefactos visuales evitando glow cuando no se necesita. */}
+      {(() => {
+        const glowStyle = glow ? Shadows.glow(glowColor, 16, 0.3) : {};
+        return (
       <TouchableOpacity onPress={press} activeOpacity={0.9}
-        style={[styles.actionBtn, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg, borderColor: bc, ...Shadows.glow(glowColor, 16, 0.3) }]}>
+        style={[styles.actionBtn, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg, borderColor: bc, ...glowStyle }]}>
         {children}
       </TouchableOpacity>
+        );
+      })()}
     </Animated.View>
   );
 }
@@ -355,7 +361,7 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
 
       {/* Botones de acción */}
       <View style={styles.actionsRow}>
-        <ActionBtn onPress={() => triggerSwipe('left')} size={68} bg="rgba(239,68,68,0.12)" bc="rgba(239,68,68,0.3)" glowColor="#EF4444">
+        <ActionBtn onPress={() => triggerSwipe('left')} size={68} bg="rgba(239,68,68,0.12)" bc="rgba(239,68,68,0.3)" glowColor="#EF4444" glow={false}>
           <Ionicons name="close" size={24} color={Colors.red} />
         </ActionBtn>
 
@@ -367,7 +373,15 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
 
       {/* Hint */}
       <View style={styles.hint}>
-        <Text style={styles.hintText}>← pasar   ·   desliza   ·   aceptar →</Text>
+        <View style={styles.hintRow}>
+          <Ionicons name="arrow-back" size={12} color={Colors.textMuted} />
+          <Text style={styles.hintText}>pasar</Text>
+          <Text style={styles.hintSep}>·</Text>
+          <Text style={styles.hintText}>desliza</Text>
+          <Text style={styles.hintSep}>·</Text>
+          <Text style={styles.hintText}>aceptar</Text>
+          <Ionicons name="arrow-forward" size={12} color={Colors.textMuted} />
+        </View>
       </View>
     </View>
   );
@@ -387,7 +401,9 @@ const createStyles = (Colors) => StyleSheet.create({
   actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32, paddingHorizontal: 20, paddingBottom: 10 },
   actionBtn: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, overflow: 'hidden' },
   hint: { alignItems: 'center', paddingBottom: Platform?.OS === 'ios' ? 36 : 20, paddingTop: 6 },
-  hintText: { fontFamily: Fonts.sans, fontSize: 11, color: 'rgba(255,255,255,0.18)', letterSpacing: 0.5 },
+  hintRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  hintSep: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, marginHorizontal: 3 },
+  hintText: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, letterSpacing: 0.4 },
 });
 
 let styles = createStyles(BaseColors);
