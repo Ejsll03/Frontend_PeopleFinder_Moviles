@@ -6,7 +6,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Fonts, Radius, Shadows } from '../theme';
+import { Colors as BaseColors, Fonts, Radius, Shadows, useThemeMode } from '../theme';
+
+let Colors = BaseColors;
 
 // ─── WebSocket Hook ───────────────────────────────────────────────────────────
 // Reemplaza WS_URL con tu servidor real (ej: 'ws://tuapp.com/chat')
@@ -172,6 +174,11 @@ function ChatItem({ chat, active, onPress }) {
 
 // ─── Screen principal ──────────────────────────────────────────────────────────
 export default function ChatScreen() {
+  const { colors, mode } = useThemeMode();
+  Colors = colors;
+  styles = React.useMemo(() => createStyles(colors), [colors]);
+  const pageGradient = mode === 'light' ? ['#F7F7FB', '#EEF2FF', '#F7F7FB'] : [Colors.bg, '#0d0818', Colors.bg];
+
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -230,7 +237,7 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[Colors.bg, '#0d0818', Colors.bg]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
 
       <View style={styles.layout}>
         {/* Sidebar */}
@@ -239,7 +246,7 @@ export default function ChatScreen() {
             <Text style={styles.sideTitle}>Mensajes</Text>
             <View style={styles.searchWrap}>
               <Text style={styles.searchIcon}>⌕</Text>
-              <TextInput style={styles.searchInput} placeholder="Buscar..." placeholderTextColor="rgba(255,255,255,0.2)" />
+              <TextInput style={styles.searchInput} placeholder="Buscar..." placeholderTextColor={Colors.textMuted} />
             </View>
           </View>
           <FlatList
@@ -317,12 +324,12 @@ export default function ChatScreen() {
                 value={input}
                 onChangeText={setInput}
                 placeholder="Escribe algo..."
-                placeholderTextColor="rgba(255,255,255,0.2)"
+                placeholderTextColor={Colors.textMuted}
                 multiline
                 onSubmitEditing={sendMessage}
               />
               <TouchableOpacity>
-                <Ionicons name="happy-outline" size={16} color="rgba(255,255,255,0.4)" />
+                <Ionicons name="happy-outline" size={16} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={sendMessage} activeOpacity={0.8}>
@@ -342,15 +349,15 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   layout: { flex: 1, flexDirection: 'row', paddingTop: 56 },
   sidebar: { width: 200, borderRightWidth: 1, borderRightColor: Colors.border },
   sideHead: { padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  sideTitle: { fontFamily: Fonts.display, fontSize: 18, color: '#fff', marginBottom: 10 },
+  sideTitle: { fontFamily: Fonts.display, fontSize: 18, color: Colors.text, marginBottom: 10 },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, paddingHorizontal: 10, paddingVertical: 8 },
   searchIcon: { fontSize: 13, color: Colors.textMuted },
-  searchInput: { flex: 1, fontFamily: Fonts.sans, fontSize: 12, color: '#fff' },
+  searchInput: { flex: 1, fontFamily: Fonts.sans, fontSize: 12, color: Colors.text },
   emptyListWrap: { alignItems: 'center', paddingHorizontal: 18, paddingTop: 26 },
   emptyListTitle: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 8 },
   emptyListSub: { fontFamily: Fonts.sans, fontSize: 10, color: Colors.textMuted, marginTop: 4, textAlign: 'center', lineHeight: 14 },
@@ -359,23 +366,23 @@ const styles = StyleSheet.create({
   chatItemAv: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   chatItemAvText: { fontFamily: Fonts.display, fontSize: 12, fontWeight: '700' },
   chatItemInfo: { flex: 1, minWidth: 0 },
-  chatItemName: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#fff' },
+  chatItemName: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.text },
   chatItemLast: { fontFamily: Fonts.sans, fontSize: 10, color: Colors.textMuted, marginTop: 2 },
   chatItemMeta: { alignItems: 'flex-end', gap: 4 },
   chatItemTime: { fontFamily: Fonts.sans, fontSize: 9, color: 'rgba(255,255,255,0.25)' },
   unreadBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
-  unreadText: { fontFamily: Fonts.sansSemiBold, fontSize: 9, color: '#fff' },
+  unreadText: { fontFamily: Fonts.sansSemiBold, fontSize: 9, color: Colors.text },
   onlineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.green, position: 'absolute', bottom: 0, right: 0, borderWidth: 2, borderColor: Colors.card },
   mainChat: { flex: 1 },
   emptyChatWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
   emptyChatCard: { width: '100%', borderRadius: 18, borderWidth: 1, borderColor: Colors.border, paddingVertical: 28, paddingHorizontal: 18, alignItems: 'center' },
-  emptyChatTitle: { fontFamily: Fonts.display, fontSize: 19, color: '#fff', marginTop: 10, textAlign: 'center' },
+  emptyChatTitle: { fontFamily: Fonts.display, fontSize: 19, color: Colors.text, marginTop: 10, textAlign: 'center' },
   emptyChatSub: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 18 },
   chatHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
   headAv: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   headAvText: { fontFamily: Fonts.display, fontSize: 13, fontWeight: '700' },
   headInfo: { flex: 1 },
-  headName: { fontFamily: Fonts.display, fontSize: 14, color: '#fff' },
+  headName: { fontFamily: Fonts.display, fontSize: 14, color: Colors.text, },
   headStatus: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.green },
   headStatusText: { fontFamily: Fonts.sans, fontSize: 11, color: Colors.green },
@@ -393,7 +400,7 @@ const styles = StyleSheet.create({
   bubble: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 16, overflow: 'hidden', position: 'relative' },
   bubbleSent: { borderRadius: 16, borderBottomRightRadius: 4 },
   bubbleRecv: { backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 16, borderBottomLeftRadius: 4 },
-  bubbleText: { fontFamily: Fonts.sans, fontSize: 13, color: '#fff', lineHeight: 19, position: 'relative', zIndex: 1 },
+  bubbleText: { fontFamily: Fonts.sans, fontSize: 13, color: Colors.text, lineHeight: 19, position: 'relative', zIndex: 1 },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
   timeRowSent: { justifyContent: 'flex-end' },
   msgTime: { fontFamily: Fonts.sans, fontSize: 9, color: 'rgba(255,255,255,0.3)' },
@@ -409,6 +416,8 @@ const styles = StyleSheet.create({
   inputBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.border, paddingBottom: Platform.OS === 'ios' ? 28 : 10 },
   iconBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   inputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: Colors.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 },
-  inputField: { flex: 1, fontFamily: Fonts.sans, fontSize: 13, color: '#fff', maxHeight: 80 },
+  inputField: { flex: 1, fontFamily: Fonts.sans, fontSize: 13, color: Colors.text, maxHeight: 80 },
   sendBtn: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
 });
+
+let styles = createStyles(BaseColors);

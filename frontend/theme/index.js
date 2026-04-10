@@ -1,4 +1,6 @@
-export const Colors = {
+import React from 'react';
+
+export const DarkColors = {
   bg: '#050510',
   card: '#0A0818',
   card2: '#13131F',
@@ -18,6 +20,43 @@ export const Colors = {
   pink: '#F472B6',
   cyan: '#67E8F9',
 };
+
+export const LightColors = {
+  bg: '#F7F7FB',
+  card: '#FFFFFF',
+  card2: '#EEF1F8',
+  border: 'rgba(15,23,42,0.08)',
+  border2: 'rgba(15,23,42,0.14)',
+  accent: '#4F46E5',
+  accentPink: '#DB2777',
+  accentCyan: '#0891B2',
+  text: '#0F172A',
+  textMuted: 'rgba(15,23,42,0.55)',
+  textSub: 'rgba(15,23,42,0.72)',
+  input: 'rgba(15,23,42,0.05)',
+  green: '#16A34A',
+  red: '#DC2626',
+  yellow: '#CA8A04',
+  purple: '#4F46E5',
+  pink: '#DB2777',
+  cyan: '#0E7490',
+};
+
+export const Colors = DarkColors;
+
+export function getThemeColors(mode = 'dark') {
+  return mode === 'light' ? LightColors : DarkColors;
+}
+
+export const ThemeModeContext = React.createContext({
+  mode: 'dark',
+  colors: DarkColors,
+  setMode: () => {},
+});
+
+export function useThemeMode() {
+  return React.useContext(ThemeModeContext);
+}
 
 export const Fonts = {
   display: 'ClashDisplay-Bold',      // npm: react-native-clash-display OR use expo-google-fonts

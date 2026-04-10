@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker'; // npm: expo-image-picker
-import { Colors, Fonts, Radius } from '../theme';
+import { Colors as BaseColors, Fonts, Radius, useThemeMode } from '../theme';
+
+let Colors = BaseColors;
 
 const STEPS = ['Perfil', 'Intereses', 'Ubicación'];
 const ALL_INTERESTS = ['Diseño', 'Música', 'Café', 'Viajes', 'Fotografía', 'Arte', 'Deporte', 'Cocina', 'Tecnología', 'Lectura', 'Gaming', 'Moda'];
@@ -133,6 +135,11 @@ function Step3({ data, setData }) {
 
 // ─── Screen principal ────────────────────────────────────────────────────────
 export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseUrl }) {
+  const { colors, mode } = useThemeMode();
+  Colors = colors;
+  styles = React.useMemo(() => createStyles(colors), [colors]);
+  const pageGradient = mode === 'light' ? ['#F7F7FB', '#EEF2FF', '#F7F7FB'] : [Colors.bg, '#0d0a1a', Colors.bg];
+
   const [step, setStep] = useState(0);
   const [data, setData] = useState({ firstName: '', lastName: '', username: '', email: '', password: '', interests: [], city: '', bio: '', avatar: null });
   const [loading, setLoading] = useState(false);
@@ -247,7 +254,7 @@ export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseU
   return (
     <View style={styles.container}>
       {/* Fondo */}
-      <LinearGradient colors={[Colors.bg, '#0d0a1a', Colors.bg]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
       <View style={[styles.orbBg, { backgroundColor: 'rgba(236,72,153,0.15)', top: -80, right: -80, width: 200, height: 200, borderRadius: 100 }]} />
 
       {/* Header */}
@@ -284,13 +291,13 @@ export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseU
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   orbBg: { position: 'absolute' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  backText: { color: '#fff', fontSize: 22, lineHeight: 26 },
-  headerTitle: { fontFamily: Fonts.display, fontSize: 18, color: '#fff' },
+  backText: { color: Colors.text, fontSize: 22, lineHeight: 26 },
+  headerTitle: { fontFamily: Fonts.display, fontSize: 18, color: Colors.text },
   headerSub: { fontFamily: Fonts.sans, fontSize: 11, color: Colors.textMuted, marginTop: 2, letterSpacing: 0.5 },
   stepRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingBottom: 20 },
   stepDot: { width: 24, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)' },
@@ -306,20 +313,22 @@ const styles = StyleSheet.create({
   avatarImg: { width: 72, height: 72, borderRadius: 36, marginBottom: 10 },
   avatarCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(124,58,237,0.2)', borderWidth: 1.5, borderStyle: 'dashed', borderColor: 'rgba(124,58,237,0.5)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   avatarPlus: { fontSize: 28, color: Colors.purple },
-  avatarLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 3 },
+  avatarLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.textSub, marginBottom: 3 },
   avatarSub: { fontFamily: Fonts.sans, fontSize: 10, color: Colors.textMuted },
   row2: { flexDirection: 'row', gap: 10 },
   fieldGroup: { marginBottom: 12 },
   fieldLabel: { fontFamily: Fonts.sansMedium, fontSize: 10, color: Colors.textMuted, letterSpacing: 1.2, marginBottom: 5 },
   fieldWrap: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 11 },
-  fieldInput: { fontFamily: Fonts.sans, fontSize: 14, color: '#fff' },
+  fieldInput: { fontFamily: Fonts.sans, fontSize: 14, color: Colors.text },
   stepHint: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, textAlign: 'center', lineHeight: 18, marginBottom: 20 },
   interestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   interestTag: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: Radius.md, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
   interestTagActive: { borderColor: 'transparent' },
-  interestText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: 'rgba(255,255,255,0.5)' },
-  interestTextActive: { color: '#fff', position: 'relative', zIndex: 1 },
+  interestText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: Colors.textSub },
+  interestTextActive: { color: Colors.text, position: 'relative', zIndex: 1 },
   footer: { paddingHorizontal: 24, paddingBottom: Platform?.OS === 'ios' ? 40 : 24, paddingTop: 12 },
   nextBtn: { borderRadius: Radius.lg, paddingVertical: 15, alignItems: 'center' },
   nextBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 15, color: '#fff' },
 });
+
+let styles = createStyles(BaseColors);

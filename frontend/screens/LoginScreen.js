@@ -4,7 +4,9 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, Animated, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient'; // npm: expo-linear-gradient
-import { Colors, Fonts, Radius } from '../theme';
+import { Colors as BaseColors, Fonts, Radius, useThemeMode } from '../theme';
+
+let Colors = BaseColors;
 
 // ─── Orbe decorativo animado ───────────────────────────────────────────────
 function Orb({ color1, color2, style }) {
@@ -95,6 +97,10 @@ function PrimaryButton({ label, onPress }) {
 
 // ─── Pantalla de Login ──────────────────────────────────────────────────────
 export default function LoginScreen({ navigation, onLoginSuccess, apiBaseUrl }) {
+  const { colors } = useThemeMode();
+  Colors = colors;
+  styles = React.useMemo(() => createStyles(colors), [colors]);
+
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -186,7 +192,7 @@ export default function LoginScreen({ navigation, onLoginSuccess, apiBaseUrl }) 
           </View>
 
           <TouchableOpacity style={styles.registerRow} onPress={() => navigation?.navigate('Register')}>
-            <Text style={styles.registerText}>¿Sin cuenta? <Text style={{ color: Colors.purple }}>Regístrate gratis</Text></Text>
+            <Text style={styles.registerText}>¿Sin cuenta? <Text style={{ color: colors.purple }}>Regístrate gratis</Text></Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -194,7 +200,7 @@ export default function LoginScreen({ navigation, onLoginSuccess, apiBaseUrl }) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   orb: { position: 'absolute', borderRadius: 999 },
   scroll: { paddingHorizontal: 24, paddingBottom: 40 },
@@ -209,8 +215,8 @@ const styles = StyleSheet.create({
     width: 60, height: 60, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
   },
-  logoText: { fontFamily: Fonts.display, fontSize: 24, color: '#fff' },
-  heroTitle: { fontFamily: Fonts.display, fontSize: 28, color: '#fff', marginTop: 14, letterSpacing: -1 },
+  logoText: { fontFamily: Fonts.display, fontSize: 24, color: Colors.text },
+  heroTitle: { fontFamily: Fonts.display, fontSize: 28, color: Colors.text, marginTop: 14, letterSpacing: -1 },
   heroSub: { fontFamily: Fonts.sans, fontSize: 11, color: Colors.textMuted, marginTop: 5, letterSpacing: 2 },
   glassCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
@@ -224,7 +230,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 12,
   },
-  fieldInput: { flex: 1, fontFamily: Fonts.sans, fontSize: 14, color: '#fff' },
+  fieldInput: { flex: 1, fontFamily: Fonts.sans, fontSize: 14, color: Colors.text },
   primaryBtn: {
     borderRadius: Radius.lg, paddingVertical: 15,
     alignItems: 'center', overflow: 'hidden', marginTop: 4,
@@ -242,7 +248,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
   },
-  socialText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: 'rgba(255,255,255,0.7)' },
+  socialText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: Colors.textSub },
   registerRow: { alignItems: 'center', marginTop: 22 },
   registerText: { fontFamily: Fonts.sans, fontSize: 13, color: Colors.textMuted },
 });
+
+let styles = createStyles(BaseColors);

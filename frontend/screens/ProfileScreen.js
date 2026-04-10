@@ -1,15 +1,38 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, Image, Animated, Alert,
+  TextInput, Image, Animated, Alert, Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Fonts, Radius, Shadows } from '../theme';
+import { Colors as BaseColors, Fonts, Radius, Shadows, useThemeMode } from '../theme';
+
+let Colors = BaseColors;
 
 const ALL_INTERESTS = ['Diseño', 'Música', 'Café', 'Viajes', 'Fotografía', 'Arte', 'Deporte', 'Tecnología'];
-const USER_DATA = { firstName: '', lastName: '', username: '', email: '', city: '', bio: '', gender: '', interests: [] };
+const DEFAULT_PRIVACY_SETTINGS = {
+  profileVisibility: 'public',
+  friendRequestPermission: 'everyone',
+  messagePermission: 'friends',
+  showCity: true,
+  showOnlineStatus: true,
+  showReadReceipts: true,
+  showLastSeen: true,
+};
+
+const USER_DATA = {
+  firstName: '',
+  lastName: '',
+  username: '',
+  email: '',
+  city: '',
+  bio: '',
+  gender: '',
+  interests: [],
+  emailVerified: false,
+  privacySettings: DEFAULT_PRIVACY_SETTINGS,
+};
 
 function resolveMediaUrl(imagePath, apiBaseUrl) {
   if (!imagePath) return null;
@@ -31,6 +54,11 @@ function mapBackendUserToProfile(user, apiBaseUrl) {
     bio: user.bio || '',
     gender: user.gender || '',
     interests: Array.isArray(user.interests) ? user.interests : [],
+    emailVerified: Boolean(user.emailVerified),
+    privacySettings: {
+      ...DEFAULT_PRIVACY_SETTINGS,
+      ...(user.privacySettings || {}),
+    },
     avatar: resolveMediaUrl(user.profileImage, apiBaseUrl),
   };
 }
@@ -73,7 +101,7 @@ function EditField({ label, value, onChangeText, multiline, keyboardType, secure
 }
 
 // ─── Vista de perfil ──────────────────────────────────────────────────────────
-function ProfileView({ userData, avatar, onEdit, onEditAvatar, onLogout, stats }) {
+function ProfileView({ userData, avatar, onEdit, onPrivacy, onAppearance, onNotifications, onEditAvatar, onLogout, onResendVerification, stats, themeMode, coverGradient }) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const contentAnim = useRef(new Animated.Value(30)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -93,9 +121,12 @@ function ProfileView({ userData, avatar, onEdit, onEditAvatar, onLogout, stats }
 
   const menuItems = [
     { icon: 'account-edit-outline', label: 'Editar perfil', sub: 'Nombre, foto, bio', color: Colors.accent, onPress: onEdit },
-    { icon: 'lock-outline', label: 'Privacidad', sub: 'Visibilidad · bloqueos', color: Colors.green },
-    { icon: 'bell-outline', label: 'Notificaciones', sub: 'Push · email', color: Colors.accentCyan },
-    { icon: 'weather-night', label: 'Apariencia', sub: 'Tema oscuro activo', color: Colors.yellow },
+    ...(!userData.emailVerified
+      ? [{ icon: 'email-fast-outline', label: 'Verificar email', sub: 'Enviar token de verificación', color: Colors.cyan, onPress: onResendVerification }]
+      : []),
+    { icon: 'lock-outline', label: 'Privacidad', sub: 'Visibilidad · bloqueos', color: Colors.green, onPress: onPrivacy },
+    { icon: 'bell-outline', label: 'Notificaciones', sub: 'Push · email', color: Colors.accentCyan, onPress: onNotifications },
+    { icon: 'weather-night', label: 'Apariencia', sub: themeMode === 'light' ? 'Tema claro activo' : 'Tema oscuro activo', color: Colors.yellow, onPress: onAppearance },
     { icon: 'logout', label: 'Cerrar sesión', sub: '', color: Colors.red, onPress: onLogout },
   ];
 
@@ -104,7 +135,7 @@ function ProfileView({ userData, avatar, onEdit, onEditAvatar, onLogout, stats }
       {/* Hero con cover */}
       <Animated.View style={[styles.heroSection, { opacity: headerAnim }]}>
         <View style={styles.coverBg}>
-          <LinearGradient colors={['#1a0533', '#0d1a3d', '#2d0a3a']} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={coverGradient} style={StyleSheet.absoluteFill} />
           <View style={[styles.coverOrb, { backgroundColor: 'rgba(124,58,237,0.3)', width: 250, height: 250, top: -80, left: -60 }]} />
           <View style={[styles.coverOrb, { backgroundColor: 'rgba(236,72,153,0.25)', width: 180, height: 180, bottom: -40, right: -40 }]} />
         </View>
@@ -135,13 +166,15 @@ function ProfileView({ userData, avatar, onEdit, onEditAvatar, onLogout, stats }
           <Text style={styles.profileName}>{userData.firstName} {userData.lastName}</Text>
           <Text style={styles.profileHandle}>@{userData.username} · {userData.city || 'Sin ciudad'}</Text>
           <View style={styles.badgesRow}>
-            <View style={styles.badge}>
-              <MaterialCommunityIcons name="check-decagram" size={12} color={Colors.purple} />
-              <Text style={styles.badgeText}>Verificada</Text>
-            </View>
-            <View style={[styles.badge, { backgroundColor: 'rgba(6,182,212,0.1)', borderColor: 'rgba(6,182,212,0.2)' }]}>
-              <Ionicons name="location-outline" size={12} color={Colors.cyan} />
-              <Text style={[styles.badgeText, { color: Colors.cyan }]}>2 km</Text>
+            <View style={[styles.badge, !userData.emailVerified && styles.badgeWarning]}>
+              <MaterialCommunityIcons
+                name={userData.emailVerified ? 'check-decagram' : 'email-alert-outline'}
+                size={12}
+                color={userData.emailVerified ? Colors.purple : Colors.yellow}
+              />
+              <Text style={[styles.badgeText, !userData.emailVerified && styles.badgeWarningText]}>
+                {userData.emailVerified ? 'Verificada' : 'Email no verificado'}
+              </Text>
             </View>
           </View>
         </View>
@@ -291,12 +324,192 @@ function EditView({ userData, setUserData, avatar, onEditAvatar, onSave, onCance
   );
 }
 
+// ─── Vista de privacidad ─────────────────────────────────────────────────────
+function PrivacyOptionPills({ options, value, onChange }) {
+  return (
+    <View style={styles.privacyPillsRow}>
+      {options.map((opt) => {
+        const selected = value === opt.value;
+        return (
+          <TouchableOpacity
+            key={opt.value}
+            onPress={() => onChange(opt.value)}
+            activeOpacity={0.8}
+            style={[styles.privacyPill, selected && styles.privacyPillActive]}
+          >
+            <Text style={[styles.privacyPillText, selected && styles.privacyPillTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+function PrivacyRow({ label, sublabel, value, onChange }) {
+  return (
+    <View style={styles.privacySwitchRow}>
+      <View style={{ flex: 1, paddingRight: 8 }}>
+        <Text style={styles.privacySwitchLabel}>{label}</Text>
+        {!!sublabel && <Text style={styles.privacySwitchSub}>{sublabel}</Text>}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: 'rgba(255,255,255,0.2)', true: 'rgba(124,58,237,0.7)' }}
+        thumbColor={value ? '#ffffff' : '#e5e7eb'}
+      />
+    </View>
+  );
+}
+
+function PrivacyView({ settings, setSettings, onSave, onCancel }) {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <View style={styles.editHeader}>
+        <TouchableOpacity onPress={onCancel}>
+          <Text style={styles.editCancel}>Cancelar</Text>
+        </TouchableOpacity>
+        <Text style={styles.editTitle}>Privacidad</Text>
+        <TouchableOpacity onPress={onSave}>
+          <Text style={styles.editSave}>Guardar</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.editFields}>
+        <View style={styles.privacyCard}>
+          <Text style={styles.privacyGroupTitle}>Visibilidad de perfil</Text>
+          <PrivacyOptionPills
+            value={settings.profileVisibility}
+            onChange={(v) => setSettings((prev) => ({ ...prev, profileVisibility: v }))}
+            options={[
+              { value: 'public', label: 'Público' },
+              { value: 'friends', label: 'Amigos' },
+              { value: 'private', label: 'Privado' },
+            ]}
+          />
+
+          <Text style={styles.privacyGroupTitle}>Solicitudes de amistad</Text>
+          <PrivacyOptionPills
+            value={settings.friendRequestPermission}
+            onChange={(v) => setSettings((prev) => ({ ...prev, friendRequestPermission: v }))}
+            options={[
+              { value: 'everyone', label: 'Todos' },
+              { value: 'friends_of_friends', label: 'Amigos de amigos' },
+              { value: 'nobody', label: 'Nadie' },
+            ]}
+          />
+
+          <Text style={styles.privacyGroupTitle}>Quién puede escribirme</Text>
+          <PrivacyOptionPills
+            value={settings.messagePermission}
+            onChange={(v) => setSettings((prev) => ({ ...prev, messagePermission: v }))}
+            options={[
+              { value: 'friends', label: 'Solo amigos' },
+              { value: 'everyone', label: 'Todos' },
+            ]}
+          />
+        </View>
+
+        <View style={styles.privacyCard}>
+          <PrivacyRow
+            label="Mostrar ciudad"
+            sublabel="Define si otros usuarios pueden verla"
+            value={Boolean(settings.showCity)}
+            onChange={(v) => setSettings((prev) => ({ ...prev, showCity: v }))}
+          />
+          <PrivacyRow
+            label="Mostrar estado en línea"
+            sublabel="Disponible o activo ahora"
+            value={Boolean(settings.showOnlineStatus)}
+            onChange={(v) => setSettings((prev) => ({ ...prev, showOnlineStatus: v }))}
+          />
+          <PrivacyRow
+            label="Confirmación de lectura"
+            sublabel="Permite mostrar visto en chats"
+            value={Boolean(settings.showReadReceipts)}
+            onChange={(v) => setSettings((prev) => ({ ...prev, showReadReceipts: v }))}
+          />
+          <PrivacyRow
+            label="Mostrar última conexión"
+            sublabel="Hora de última actividad"
+            value={Boolean(settings.showLastSeen)}
+            onChange={(v) => setSettings((prev) => ({ ...prev, showLastSeen: v }))}
+          />
+        </View>
+
+        <TouchableOpacity onPress={onSave} activeOpacity={0.85} style={{ marginTop: 8 }}>
+          <LinearGradient colors={[Colors.accent, Colors.accentPink]} style={styles.saveBtn}>
+            <Text style={styles.saveBtnText}>Guardar privacidad</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ height: 60 }} />
+    </ScrollView>
+  );
+}
+
+function AppearanceView({ mode, onChangeMode, onSave, onCancel }) {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <View style={styles.editHeader}>
+        <TouchableOpacity onPress={onCancel}>
+          <Text style={styles.editCancel}>Cancelar</Text>
+        </TouchableOpacity>
+        <Text style={styles.editTitle}>Apariencia</Text>
+        <TouchableOpacity onPress={onSave}>
+          <Text style={styles.editSave}>Guardar</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.editFields}>
+        <View style={styles.privacyCard}>
+          <Text style={styles.privacyGroupTitle}>Selecciona tema</Text>
+          <PrivacyOptionPills
+            value={mode}
+            onChange={onChangeMode}
+            options={[
+              { value: 'dark', label: 'Oscuro' },
+              { value: 'light', label: 'Claro' },
+            ]}
+          />
+          <Text style={styles.privacySwitchSub}>Este ajuste se guarda en tu perfil y se aplica al abrir sesión.</Text>
+        </View>
+
+        <TouchableOpacity onPress={onSave} activeOpacity={0.85} style={{ marginTop: 8 }}>
+          <LinearGradient colors={[Colors.accent, Colors.accentPink]} style={styles.saveBtn}>
+            <Text style={styles.saveBtnText}>Guardar apariencia</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ height: 60 }} />
+    </ScrollView>
+  );
+}
+
 // ─── Screen principal ─────────────────────────────────────────────────────────
-export default function ProfileScreen({ navigation, currentUser, setCurrentUser, apiBaseUrl }) {
+export default function ProfileScreen({ navigation, currentUser, setCurrentUser, apiBaseUrl, themeMode = 'dark', onThemeModeChange }) {
+  const { colors, mode } = useThemeMode();
+  Colors = colors;
+  styles = React.useMemo(() => createStyles(colors), [colors]);
+  const pageGradient = mode === 'light' ? ['#F7F7FB', '#EEF2FF', '#F7F7FB'] : [Colors.bg, '#0d0818', Colors.bg];
+  const coverGradient = mode === 'light' ? ['#E9E7FF', '#E0EEFF', '#F3E8FF'] : ['#1a0533', '#0d1a3d', '#2d0a3a'];
+
   const [editing, setEditing] = useState(false);
+  const [privacyEditing, setPrivacyEditing] = useState(false);
+  const [appearanceEditing, setAppearanceEditing] = useState(false);
   const initialProfile = mapBackendUserToProfile(currentUser, apiBaseUrl);
   const [userData, setUserData] = useState(initialProfile);
   const [avatar, setAvatar] = useState(initialProfile.avatar || null);
+  const [privacySettings, setPrivacySettings] = useState(
+    initialProfile.privacySettings || DEFAULT_PRIVACY_SETTINGS
+  );
+  const [appearanceMode, setAppearanceMode] = useState(
+    initialProfile.privacySettings?.appearanceMode || themeMode || 'dark'
+  );
 
   const stats = React.useMemo(() => {
     const friendsCount = Array.isArray(currentUser?.friends)
@@ -323,7 +536,31 @@ export default function ProfileScreen({ navigation, currentUser, setCurrentUser,
     const mapped = mapBackendUserToProfile(currentUser, apiBaseUrl);
     setUserData(mapped);
     setAvatar(mapped.avatar || null);
-  }, [currentUser, apiBaseUrl]);
+    setPrivacySettings(mapped.privacySettings || DEFAULT_PRIVACY_SETTINGS);
+    setAppearanceMode(mapped.privacySettings?.appearanceMode || themeMode || 'dark');
+  }, [currentUser, apiBaseUrl, themeMode]);
+
+  const loadPrivacySettings = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/privacy`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const payload = await response.json();
+      if (!response.ok) return;
+
+      setPrivacySettings({
+        ...DEFAULT_PRIVACY_SETTINGS,
+        ...(payload.privacySettings || {}),
+      });
+      setAppearanceMode(
+        payload?.privacySettings?.appearanceMode ||
+          DEFAULT_PRIVACY_SETTINGS.appearanceMode
+      );
+    } catch (_error) {
+      // Estado local ya tiene defaults y datos previos.
+    }
+  };
 
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -380,20 +617,147 @@ export default function ProfileScreen({ navigation, currentUser, setCurrentUser,
     navigation?.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
+  const handleResendVerification = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/resend-verification`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Error', payload.error || 'No se pudo reenviar la verificación.');
+        return;
+      }
+
+      Alert.alert('Listo', payload.message || 'Te enviamos un correo de verificación.');
+    } catch (error) {
+      Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');
+    }
+  };
+
+  const handleOpenPrivacy = async () => {
+    await loadPrivacySettings();
+    setPrivacyEditing(true);
+  };
+
+  const handleSavePrivacy = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/privacy`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privacySettings }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('No se pudo guardar', payload.error || 'Intenta nuevamente.');
+        return;
+      }
+
+      setPrivacySettings({
+        ...DEFAULT_PRIVACY_SETTINGS,
+        ...(payload.privacySettings || {}),
+      });
+
+      setCurrentUser?.((prev) => ({
+        ...(prev || {}),
+        privacySettings: {
+          ...DEFAULT_PRIVACY_SETTINGS,
+          ...(payload.privacySettings || {}),
+        },
+      }));
+
+      setUserData((prev) => ({
+        ...prev,
+        privacySettings: {
+          ...DEFAULT_PRIVACY_SETTINGS,
+          ...(payload.privacySettings || {}),
+        },
+      }));
+
+      setPrivacyEditing(false);
+    } catch (error) {
+      Alert.alert('Error de conexión', 'No se pudo guardar la privacidad.');
+    }
+  };
+
+  const handleOpenAppearance = async () => {
+    await loadPrivacySettings();
+    setAppearanceEditing(true);
+  };
+
+  const handleSaveAppearance = async () => {
+    try {
+      const mergedSettings = {
+        ...privacySettings,
+        appearanceMode,
+      };
+
+      const response = await fetch(`${apiBaseUrl}/auth/privacy`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privacySettings: mergedSettings }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('No se pudo guardar', payload.error || 'Intenta nuevamente.');
+        return;
+      }
+
+      const nextPrivacy = {
+        ...DEFAULT_PRIVACY_SETTINGS,
+        ...(payload.privacySettings || {}),
+      };
+      setPrivacySettings(nextPrivacy);
+      setAppearanceMode(nextPrivacy.appearanceMode || 'dark');
+      onThemeModeChange?.(nextPrivacy.appearanceMode || 'dark');
+
+      setCurrentUser?.((prev) => ({
+        ...(prev || {}),
+        privacySettings: nextPrivacy,
+      }));
+
+      setAppearanceEditing(false);
+    } catch (error) {
+      Alert.alert('Error de conexión', 'No se pudo guardar la apariencia.');
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[Colors.bg, '#0d0818', Colors.bg]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
       <View style={{ paddingTop: 56, flex: 1 }}>
-        {editing
+        {appearanceEditing
+          ? <AppearanceView mode={appearanceMode} onChangeMode={setAppearanceMode} onSave={handleSaveAppearance} onCancel={() => setAppearanceEditing(false)} />
+          : privacyEditing
+          ? <PrivacyView settings={privacySettings} setSettings={setPrivacySettings} onSave={handleSavePrivacy} onCancel={() => setPrivacyEditing(false)} />
+          : editing
           ? <EditView userData={userData} setUserData={setUserData} avatar={avatar} onEditAvatar={pickAvatar} onSave={handleSave} onCancel={() => setEditing(false)} />
-          : <ProfileView userData={userData} avatar={avatar} onEdit={() => setEditing(true)} onEditAvatar={pickAvatar} onLogout={handleLogout} stats={stats} />
+          : <ProfileView
+              userData={userData}
+              avatar={avatar}
+              onEdit={() => setEditing(true)}
+              onPrivacy={handleOpenPrivacy}
+              onAppearance={handleOpenAppearance}
+              onNotifications={() => navigation?.navigate('Notifications', { apiBaseUrl })}
+              onEditAvatar={pickAvatar}
+              onLogout={handleLogout}
+              onResendVerification={handleResendVerification}
+              stats={stats}
+              themeMode={themeMode}
+              coverGradient={coverGradient}
+            />
         }
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   heroSection: { height: 200 },
   coverBg: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
@@ -404,14 +768,16 @@ const styles = StyleSheet.create({
   avatarWrap: { position: 'absolute', bottom: -36, left: '50%', marginLeft: -40, alignItems: 'center' },
   profileAvBorder: { width: 80, height: 80, borderRadius: 40, padding: 3, backgroundColor: Colors.card },
   profileAv: { width: 74, height: 74, borderRadius: 37, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  profileAvText: { fontFamily: Fonts.display, fontSize: 26, color: '#fff', fontWeight: '700' },
+  profileAvText: { fontFamily: Fonts.display, fontSize: 26, color: Colors.text, fontWeight: '700' },
   onlineIndicator: { width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.green, borderWidth: 3, borderColor: Colors.bg, position: 'absolute', bottom: 0, right: -2 },
   profileInfoSection: { paddingTop: 48, alignItems: 'center', paddingBottom: 12, paddingHorizontal: 20 },
-  profileName: { fontFamily: Fonts.display, fontSize: 22, color: '#fff', letterSpacing: -0.5 },
+  profileName: { fontFamily: Fonts.display, fontSize: 22, color: Colors.text, letterSpacing: -0.5 },
   profileHandle: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, marginTop: 4 },
   badgesRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(124,58,237,0.15)', borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)' },
   badgeText: { fontFamily: Fonts.sansMedium, fontSize: 11, color: Colors.purple },
+  badgeWarning: { backgroundColor: 'rgba(234,179,8,0.12)', borderColor: 'rgba(234,179,8,0.25)' },
+  badgeWarningText: { color: Colors.yellow },
   statsRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', marginHorizontal: 0, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.border },
   statBox: { flex: 1, paddingVertical: 16, alignItems: 'center' },
   statNum: { fontFamily: Fonts.display, fontSize: 22, color: Colors.purple, fontWeight: '700' },
@@ -429,12 +795,12 @@ const styles = StyleSheet.create({
   menuItemDanger: { borderColor: 'rgba(239,68,68,0.12)', backgroundColor: 'rgba(239,68,68,0.04)' },
   menuIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   menuText: { flex: 1 },
-  menuLabel: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#fff' },
+  menuLabel: { fontFamily: Fonts.sansMedium, fontSize: 13, color: Colors.text },
   menuSub: { fontFamily: Fonts.sans, fontSize: 11, color: Colors.textMuted, marginTop: 2 },
   menuArrow: { fontFamily: Fonts.sans, fontSize: 18, color: 'rgba(255,255,255,0.2)' },
   editHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16 },
   editCancel: { fontFamily: Fonts.sans, fontSize: 14, color: Colors.textMuted },
-  editTitle: { fontFamily: Fonts.display, fontSize: 17, color: '#fff' },
+  editTitle: { fontFamily: Fonts.display, fontSize: 17, color: Colors.text },
   editSave: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: Colors.purple },
   editAvatarWrap: { alignItems: 'center', marginBottom: 20 },
   editAvatar: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
@@ -445,7 +811,52 @@ const styles = StyleSheet.create({
   editFieldGroup: { marginBottom: 12 },
   editFieldLabel: { fontFamily: Fonts.sansMedium, fontSize: 10, color: Colors.textMuted, letterSpacing: 1.2, marginBottom: 5 },
   editFieldWrap: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 11 },
-  editFieldInput: { fontFamily: Fonts.sans, fontSize: 14, color: '#fff' },
+  editFieldInput: { fontFamily: Fonts.sans, fontSize: 14, color: Colors.text },
+  privacyCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  privacyGroupTitle: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
+    color: Colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    marginTop: 6,
+  },
+  privacyPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  privacyPill: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  privacyPillActive: {
+    borderColor: 'rgba(124,58,237,0.35)',
+    backgroundColor: 'rgba(124,58,237,0.2)',
+  },
+  privacyPillText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: 'rgba(255,255,255,0.65)' },
+  privacyPillTextActive: { color: Colors.text },
+  privacySwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  privacySwitchLabel: { fontFamily: Fonts.sansMedium, fontSize: 13, color: Colors.text },
+  privacySwitchSub: { fontFamily: Fonts.sans, fontSize: 11, color: Colors.textMuted, marginTop: 2 },
   interestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   interestTag: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   interestTagActive: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
@@ -455,3 +866,5 @@ const styles = StyleSheet.create({
   deleteBtn: { marginTop: 12, paddingVertical: 13, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', backgroundColor: 'rgba(239,68,68,0.06)', alignItems: 'center' },
   deleteBtnText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: 'rgba(239,68,68,0.7)' },
 });
+
+let styles = createStyles(BaseColors);

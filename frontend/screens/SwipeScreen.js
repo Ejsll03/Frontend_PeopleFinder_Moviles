@@ -5,7 +5,9 @@ import {
 import { PanGestureHandler, State } from 'react-native-gesture-handler'; // npm: react-native-gesture-handler
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Fonts, Radius, Shadows } from '../theme';
+import { Colors as BaseColors, Fonts, Radius, Shadows, useThemeMode } from '../theme';
+
+let Colors = BaseColors;
 
 const { width: W, height: H } = Dimensions.get('window');
 const SWIPE_THRESHOLD = W * 0.28;
@@ -202,6 +204,11 @@ function ActionBtn({ onPress, size = 56, children, bg, border: bc, glowColor }) 
 
 // ─── Screen principal ─────────────────────────────────────────────────────────
 export default function SwipeScreen({ navigation, apiBaseUrl }) {
+  const { colors, mode } = useThemeMode();
+  Colors = colors;
+  styles = React.useMemo(() => createStyles(colors), [colors]);
+  const pageGradient = mode === 'light' ? ['#F7F7FB', '#EEF2FF', '#F7F7FB'] : [Colors.bg, '#0d0818', Colors.bg];
+
   const [profiles, setProfiles] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [processingSwipe, setProcessingSwipe] = React.useState(false);
@@ -286,7 +293,7 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[Colors.bg, '#0d0818', Colors.bg]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
 
       {/* Header */}
       <View style={styles.topbar}>
@@ -365,19 +372,21 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 56, paddingBottom: 12 },
-  topTitle: { fontFamily: Fonts.display, fontSize: 24, color: '#fff', letterSpacing: -0.5 },
+  topTitle: { fontFamily: Fonts.display, fontSize: 24, color: Colors.text, letterSpacing: -0.5 },
   topSub: { fontFamily: Fonts.sans, fontSize: 11, color: Colors.textMuted, marginTop: 2 },
   filterBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   stackArea: { flex: 1, marginHorizontal: 20, marginBottom: 12 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyEmoji: { fontSize: 48, marginBottom: 14 },
-  emptyTitle: { fontFamily: Fonts.display, fontSize: 20, color: '#fff', marginBottom: 6 },
+  emptyTitle: { fontFamily: Fonts.display, fontSize: 20, color: Colors.text, marginBottom: 6 },
   emptySub: { fontFamily: Fonts.sans, fontSize: 13, color: Colors.textMuted },
   actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: 20, paddingBottom: 10 },
   actionBtn: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, overflow: 'hidden' },
   hint: { alignItems: 'center', paddingBottom: Platform?.OS === 'ios' ? 36 : 20, paddingTop: 6 },
   hintText: { fontFamily: Fonts.sans, fontSize: 11, color: 'rgba(255,255,255,0.18)', letterSpacing: 0.5 },
 });
+
+let styles = createStyles(BaseColors);
