@@ -16,6 +16,7 @@ import RegisterScreen from './screens/RegisterScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SwipeScreen from './screens/SwipeScreen';
 import ChatScreen from './screens/ChatScreen';
+import FriendsScreen from './screens/FriendsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import { Colors, Fonts, ThemeModeContext, getThemeColors } from './theme';
@@ -104,6 +105,13 @@ function TabIcon({ focused, icon, label, uiColors }) {
 function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
   const uiColors = AppTheme[themeMode] || AppTheme.dark;
   const [unreadMessages, setUnreadMessages] = React.useState(0);
+  const [unreadNotifications, setUnreadNotifications] = React.useState(0);
+
+  const formatBadgeCount = React.useCallback((value) => {
+    const count = Number(value || 0);
+    if (count <= 0) return undefined;
+    return count > 99 ? '99+' : count;
+  }, []);
 
   const loadUnreadSummary = React.useCallback(async () => {
     if (!currentUser?.id && !currentUser?._id) {
@@ -125,11 +133,35 @@ function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
     }
   }, [currentUser]);
 
+  const loadUnreadNotifications = React.useCallback(async () => {
+    if (!currentUser?.id && !currentUser?._id) {
+      setUnreadNotifications(0);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const payload = await response.json();
+      if (!response.ok) return;
+
+      setUnreadNotifications(Number(payload?.unreadCount || 0));
+    } catch (_error) {
+      // Ignorado: mantenemos el ultimo contador valido.
+    }
+  }, [currentUser]);
+
   React.useEffect(() => {
     loadUnreadSummary();
-    const timer = setInterval(loadUnreadSummary, 6000);
+    loadUnreadNotifications();
+    const timer = setInterval(() => {
+      loadUnreadSummary();
+      loadUnreadNotifications();
+    }, 6000);
     return () => clearInterval(timer);
-  }, [loadUnreadSummary]);
+  }, [loadUnreadSummary, loadUnreadNotifications]);
 
   React.useEffect(() => {
     const userId = currentUser?.id || currentUser?._id;
@@ -144,19 +176,22 @@ function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
 
     const refreshUnread = () => {
       loadUnreadSummary();
+      loadUnreadNotifications();
     };
 
     socket.on('chat_updated', refreshUnread);
     socket.on('chat_read', refreshUnread);
     socket.on('new_message', refreshUnread);
+    socket.on('notification:new', refreshUnread);
 
     return () => {
       socket.off('chat_updated', refreshUnread);
       socket.off('chat_read', refreshUnread);
       socket.off('new_message', refreshUnread);
+      socket.off('notification:new', refreshUnread);
       socket.disconnect();
     };
-  }, [currentUser, loadUnreadSummary]);
+  }, [currentUser, loadUnreadSummary, loadUnreadNotifications]);
 
   return (
     <Tab.Navigator
@@ -184,6 +219,7 @@ function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
           <SwipeScreen
             {...props}
             apiBaseUrl={API_BASE_URL}
+            currentUser={currentUser}
           />
         )}
       </Tab.Screen>
@@ -191,7 +227,7 @@ function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
         name="Chats"
         options={{
           tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="chatbubble-ellipses-outline" label="Chats" uiColors={uiColors} />,
-          tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
+          tabBarBadge: formatBadgeCount(unreadMessages),
           tabBarBadgeStyle: {
             backgroundColor: '#EF4444',
             color: '#FFFFFF',
@@ -205,6 +241,40 @@ function MainTabs({ currentUser, setCurrentUser, themeMode, setThemeMode }) {
             {...props}
             apiBaseUrl={API_BASE_URL}
             currentUser={currentUser}
+          />
+        )}
+      </Tab.Screen>
+      <Tab.Screen
+        name="Amigos"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="people-outline" label="Amigos" uiColors={uiColors} />,
+        }}
+      >
+        {(props) => (
+          <FriendsScreen
+            {...props}
+            apiBaseUrl={API_BASE_URL}
+            currentUser={currentUser}
+          />
+        )}
+      </Tab.Screen>
+      <Tab.Screen
+        name="Notificaciones"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="notifications-outline" label="Alertas" uiColors={uiColors} />,
+          tabBarBadge: formatBadgeCount(unreadNotifications),
+          tabBarBadgeStyle: {
+            backgroundColor: '#EF4444',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: '700',
+          },
+        }}
+      >
+        {(props) => (
+          <NotificationsScreen
+            {...props}
+            apiBaseUrl={API_BASE_URL}
           />
         )}
       </Tab.Screen>

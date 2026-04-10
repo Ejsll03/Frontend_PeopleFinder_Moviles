@@ -38,13 +38,23 @@ function formatDate(value) {
   });
 }
 
-export default function NotificationsScreen({ navigation, route }) {
+function resolveMessageSender(notification) {
+  return (
+    notification?.data?.senderName ||
+    notification?.data?.fromName ||
+    notification?.actor?.fullName ||
+    notification?.actor?.username ||
+    'Usuario'
+  );
+}
+
+export default function NotificationsScreen({ navigation, route, apiBaseUrl: apiBaseUrlProp }) {
   const { colors, mode } = useThemeMode();
   Colors = colors;
   styles = React.useMemo(() => createStyles(colors), [colors]);
   const pageGradient = mode === 'light' ? ['#F7F7FB', '#EEF2FF', '#F7F7FB'] : [Colors.bg, '#0d0818', Colors.bg];
 
-  const apiBaseUrl = route?.params?.apiBaseUrl;
+  const apiBaseUrl = route?.params?.apiBaseUrl || apiBaseUrlProp;
   const [notifications, setNotifications] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -161,20 +171,17 @@ export default function NotificationsScreen({ navigation, route }) {
         return;
       }
 
-      const decision = direction === 'right' ? 'accepted' : 'rejected';
-      setNotifications((prev) =>
-        prev.map((item) =>
-          item._id === notification._id
-            ? {
-                ...item,
-                isRead: true,
-                readAt: item.readAt || new Date().toISOString(),
-                friendRequestHandled: true,
-                friendRequestDecision: decision,
-              }
-            : item
-        )
-      );
+      // Al responder la solicitud, eliminamos la notificación para limpiar la bandeja.
+      try {
+        await fetch(`${apiBaseUrl}/notifications/${notification._id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+      } catch (_deleteError) {
+        // Ignorado: quitamos localmente aunque falle red para mantener UX consistente.
+      }
+
+      setNotifications((prev) => prev.filter((item) => item._id !== notification._id));
 
       if (direction === 'right') {
         Alert.alert('Solicitud aceptada', payload.message || 'Ahora pueden conversar.');
@@ -184,19 +191,6 @@ export default function NotificationsScreen({ navigation, route }) {
     } finally {
       setPendingActionId(null);
     }
-  };
-
-  const openChats = (notification) => {
-    const openChatId = notification?.data?.chatId || '';
-    const openWithUserId = resolveTargetUserId(notification);
-
-    navigation?.navigate('Main', {
-      screen: 'Chats',
-      params: {
-        openChatId,
-        openWithUserId,
-      },
-    });
   };
 
   return (
@@ -241,8 +235,10 @@ export default function NotificationsScreen({ navigation, route }) {
             >
               <View style={styles.itemIcon}><NotificationIcon type={item.type} /></View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
-                {!!item.body && <Text style={styles.itemBody}>{item.body}</Text>}
+                <Text style={styles.itemTitle}>
+                  {item.type === 'message' ? `Nuevo mensaje de ${resolveMessageSender(item)}` : item.title}
+                </Text>
+                {item.type !== 'message' && !!item.body && <Text style={styles.itemBody}>{item.body}</Text>}
                 <Text style={styles.itemDate}>{formatDate(item.createdAt)}</Text>
 
                 {item.type === 'friend_request' && !item.friendRequestHandled ? (
@@ -266,17 +262,6 @@ export default function NotificationsScreen({ navigation, route }) {
                   </View>
                 ) : null}
 
-                {(item.type === 'friend_match' || item.type === 'message') ? (
-                  <View style={styles.actionsRow}>
-                    <TouchableOpacity
-                      onPress={() => openChats(item)}
-                      activeOpacity={0.8}
-                      style={[styles.actionBtn, styles.chatBtn]}
-                    >
-                      <Text style={styles.chatBtnText}>Conversar</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
               </View>
               {!item.isRead && <View style={styles.dotUnread} />}
             </TouchableOpacity>

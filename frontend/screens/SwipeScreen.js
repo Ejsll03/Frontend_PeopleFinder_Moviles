@@ -2,14 +2,14 @@ import React, { useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Platform, Image, Alert, ActivityIndicator,
 } from 'react-native';
-import { PanGestureHandler, State } from 'react-native-gesture-handler'; // npm: react-native-gesture-handler
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors as BaseColors, Fonts, Radius, Shadows, useThemeMode } from '../theme';
 
 let Colors = BaseColors;
 
-const { width: W, height: H } = Dimensions.get('window');
+const { width: W } = Dimensions.get('window');
 const SWIPE_THRESHOLD = W * 0.28;
 const ROTATION_FACTOR = 12;
 const CARD_THEMES = [
@@ -36,47 +36,29 @@ function getInitials(fullName = '', username = '') {
   return (username || 'U').slice(0, 2).toUpperCase();
 }
 
-function mapDiscoverUser(user, apiBaseUrl, index) {
+function normalizeInterest(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+function mapDiscoverUser(user, apiBaseUrl, index, currentInterestSet) {
   const theme = CARD_THEMES[index % CARD_THEMES.length];
+  const tags = Array.isArray(user.interests) ? user.interests.slice(0, 4) : [];
+  const commonInterests = tags.filter((tag) => currentInterestSet.has(normalizeInterest(tag)));
+
   return {
     id: user._id,
     initials: getInitials(user.fullName, user.username),
     name: user.fullName || user.username,
     username: user.username || '',
     city: user.city || 'Sin ciudad',
-    tags: Array.isArray(user.interests) ? user.interests.slice(0, 4) : [],
+    tags,
+    commonInterests,
     colors: theme.colors,
     accent: theme.accent,
     profileImage: resolveMediaUrl(user.profileImage, apiBaseUrl),
   };
 }
 
-// ─── Indicador de compatibilidad ─────────────────────────────────────────────
-function CompatBar({ value }) {
-  const fillAnim = useRef(new Animated.Value(0)).current;
-  React.useEffect(() => {
-    Animated.timing(fillAnim, { toValue: value / 100, duration: 800, delay: 200, useNativeDriver: false }).start();
-  }, [value]);
-  const width = fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
-  return (
-    <View style={compatStyles.row}>
-      <View style={compatStyles.track}>
-        <Animated.View style={[compatStyles.fill, { width }]}>
-          <LinearGradient colors={[Colors.accent, Colors.accentCyan]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} />
-        </Animated.View>
-      </View>
-      <Text style={compatStyles.pct}>{value}% compatible</Text>
-    </View>
-  );
-}
-const compatStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  track: { flex: 1, height: 3, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 2 },
-  pct: { fontFamily: Fonts.sans, fontSize: 10, color: Colors.textMuted },
-});
-
-// ─── Tarjeta de perfil individual ────────────────────────────────────────────
 function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -108,17 +90,13 @@ function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
     <Animated.View style={[cardStyles.wrapper, style, isTop && { transform: [{ translateX }, { translateY }, { rotate }] }]}>
       <PanGestureHandler onGestureEvent={onGestureEvent} onHandlerStateChange={onHandlerStateChange} enabled={isTop}>
         <Animated.View style={cardStyles.card}>
-          {/* Fondo mesh */}
           <LinearGradient colors={profile.colors} style={StyleSheet.absoluteFill} />
 
-          {/* Orbes internos */}
           <View style={[cardStyles.innerOrb, { width: 180, height: 180, top: -40, left: -40, backgroundColor: `${profile.accent}33` }]} />
           <View style={[cardStyles.innerOrb, { width: 140, height: 140, bottom: 60, right: -20, backgroundColor: `${profile.accent}22` }]} />
 
-          {/* Gradiente negro inferior */}
           <LinearGradient colors={['transparent', 'transparent', 'rgba(0,0,0,0.92)']} style={[StyleSheet.absoluteFill, { top: '30%' }]} />
 
-          {/* Avatar top-right */}
           <View style={cardStyles.avatarWrap}>
             <View style={[cardStyles.onlineRing, { borderColor: `${Colors.green}80` }]} />
             <View style={[cardStyles.avatar, { backgroundColor: `${profile.accent}33` }]}>
@@ -130,7 +108,6 @@ function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
             </View>
           </View>
 
-          {/* Labels de swipe */}
           {isTop && (
             <>
               <Animated.View style={[cardStyles.swipeLabel, cardStyles.swipeLabelYes, { opacity: yesOpacity }]}>
@@ -142,16 +119,20 @@ function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
             </>
           )}
 
-          {/* Info inferior */}
           <View style={cardStyles.info}>
             <View style={cardStyles.nameRow}>
               <Text style={cardStyles.name}>{profile.name}</Text>
             </View>
             <Text style={cardStyles.meta}>◎ {profile.city} · @{profile.username}</Text>
             <View style={cardStyles.tags}>
-              {profile.tags.map(tag => (
-                <View key={tag} style={cardStyles.tag}><Text style={cardStyles.tagText}>{tag}</Text></View>
-              ))}
+              {profile.tags.map((tag) => {
+                const isCommon = profile.commonInterests.includes(tag);
+                return (
+                  <View key={tag} style={[cardStyles.tag, isCommon && cardStyles.tagCommon]}>
+                    <Text style={[cardStyles.tagText, isCommon && cardStyles.tagCommonText]}>{tag}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         </Animated.View>
@@ -180,9 +161,10 @@ const cardStyles = StyleSheet.create({
   tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   tag: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   tagText: { fontFamily: Fonts.sansMedium, fontSize: 11, color: 'rgba(255,255,255,0.85)' },
+  tagCommon: { backgroundColor: 'rgba(74,222,128,0.2)', borderColor: 'rgba(74,222,128,0.45)' },
+  tagCommonText: { color: '#A7F3D0' },
 });
 
-// ─── Botón de acción ──────────────────────────────────────────────────────────
 function ActionBtn({ onPress, size = 56, children, bg, border: bc, glowColor, glow = true }) {
   const scale = useRef(new Animated.Value(1)).current;
   const press = () => {
@@ -192,24 +174,26 @@ function ActionBtn({ onPress, size = 56, children, bg, border: bc, glowColor, gl
     ]).start();
     onPress?.();
   };
+
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
-      {/** En Android reducimos artefactos visuales evitando glow cuando no se necesita. */}
       {(() => {
         const glowStyle = glow ? Shadows.glow(glowColor, 16, 0.3) : {};
         return (
-      <TouchableOpacity onPress={press} activeOpacity={0.9}
-        style={[styles.actionBtn, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg, borderColor: bc, ...glowStyle }]}>
-        {children}
-      </TouchableOpacity>
+          <TouchableOpacity
+            onPress={press}
+            activeOpacity={0.9}
+            style={[styles.actionBtn, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg, borderColor: bc, ...glowStyle }]}
+          >
+            {children}
+          </TouchableOpacity>
         );
       })()}
     </Animated.View>
   );
 }
 
-// ─── Screen principal ─────────────────────────────────────────────────────────
-export default function SwipeScreen({ navigation, apiBaseUrl }) {
+export default function SwipeScreen({ navigation, apiBaseUrl, currentUser }) {
   const { colors, mode } = useThemeMode();
   Colors = colors;
   styles = React.useMemo(() => createStyles(colors), [colors]);
@@ -219,6 +203,11 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
   const [loading, setLoading] = React.useState(true);
   const [processingSwipe, setProcessingSwipe] = React.useState(false);
   const [lastAction, setLastAction] = React.useState(null);
+
+  const currentInterestSet = React.useMemo(() => {
+    const source = Array.isArray(currentUser?.interests) ? currentUser.interests : [];
+    return new Set(source.map((interest) => normalizeInterest(interest)).filter(Boolean));
+  }, [currentUser]);
 
   const fetchDiscoverUsers = useCallback(async () => {
     try {
@@ -236,16 +225,16 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
       }
 
       const mapped = (Array.isArray(payload) ? payload : []).map((user, index) =>
-        mapDiscoverUser(user, apiBaseUrl, index)
+        mapDiscoverUser(user, apiBaseUrl, index, currentInterestSet)
       );
       setProfiles(mapped);
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${apiBaseUrl}.`);
       setProfiles([]);
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, currentInterestSet]);
 
   React.useEffect(() => {
     fetchDiscoverUsers();
@@ -276,7 +265,7 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
       setProfiles((p) => p.slice(1));
       setLastAction(direction === 'right' ? 'like' : 'skip');
       setTimeout(() => setLastAction(null), 1500);
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${apiBaseUrl}.`);
     } finally {
       setProcessingSwipe(false);
@@ -292,7 +281,7 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
   }, [processSwipe]);
 
   const triggerSwipe = (dir) => {
-    if (profiles.length === 0) return;
+    if (!profiles.length) return;
     if (dir === 'right') handleSwipeRight();
     else handleSwipeLeft();
   };
@@ -304,7 +293,7 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
         credentials: 'include',
       });
     } catch (_error) {
-      // Ignorado: hacemos logout local aunque falle la red.
+      // Ignorado.
     }
 
     navigation?.reset({ index: 0, routes: [{ name: 'Login' }] });
@@ -314,7 +303,6 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
     <View style={styles.container}>
       <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
 
-      {/* Header */}
       <View style={styles.topbar}>
         <View>
           <Text style={styles.topTitle}>Descubrir</Text>
@@ -325,7 +313,6 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
         </TouchableOpacity>
       </View>
 
-      {/* Stack de tarjetas */}
       <View style={styles.stackArea}>
         {loading ? (
           <View style={styles.emptyState}>
@@ -359,7 +346,6 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
         )}
       </View>
 
-      {/* Botones de acción */}
       <View style={styles.actionsRow}>
         <ActionBtn onPress={() => triggerSwipe('left')} size={68} bg="rgba(239,68,68,0.12)" bc="rgba(239,68,68,0.3)" glowColor="#EF4444" glow={false}>
           <Ionicons name="close" size={24} color={Colors.red} />
@@ -371,18 +357,13 @@ export default function SwipeScreen({ navigation, apiBaseUrl }) {
         </ActionBtn>
       </View>
 
-      {/* Hint */}
-      <View style={styles.hint}>
-        <View style={styles.hintRow}>
-          <Ionicons name="arrow-back" size={12} color={Colors.textMuted} />
-          <Text style={styles.hintText}>pasar</Text>
-          <Text style={styles.hintSep}>·</Text>
-          <Text style={styles.hintText}>desliza</Text>
-          <Text style={styles.hintSep}>·</Text>
-          <Text style={styles.hintText}>aceptar</Text>
-          <Ionicons name="arrow-forward" size={12} color={Colors.textMuted} />
+      {!!lastAction && (
+        <View style={styles.hint}>
+          <View style={styles.hintRow}>
+            <Text style={styles.hintText}>{lastAction === 'like' ? 'Te gusta' : 'Pasaste'}</Text>
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -400,9 +381,8 @@ const createStyles = (Colors) => StyleSheet.create({
   emptySub: { fontFamily: Fonts.sans, fontSize: 13, color: Colors.textMuted },
   actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32, paddingHorizontal: 20, paddingBottom: 10 },
   actionBtn: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, overflow: 'hidden' },
-  hint: { alignItems: 'center', paddingBottom: Platform?.OS === 'ios' ? 36 : 20, paddingTop: 6 },
+  hint: { alignItems: 'center', paddingBottom: Platform.OS === 'ios' ? 36 : 20, paddingTop: 6 },
   hintRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  hintSep: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, marginHorizontal: 3 },
   hintText: { fontFamily: Fonts.sans, fontSize: 12, color: Colors.textMuted, letterSpacing: 0.4 },
 });
 

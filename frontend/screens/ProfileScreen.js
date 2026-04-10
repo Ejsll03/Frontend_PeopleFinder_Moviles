@@ -101,7 +101,7 @@ function EditField({ label, value, onChangeText, multiline, keyboardType, secure
 }
 
 // ─── Vista de perfil ──────────────────────────────────────────────────────────
-function ProfileView({ userData, avatar, onEdit, onPrivacy, onAppearance, onNotifications, onEditAvatar, onLogout, onResendVerification, stats, themeMode, coverGradient }) {
+function ProfileView({ userData, avatar, onEdit, onPrivacy, onAppearance, onEditAvatar, onLogout, onResendVerification, stats, themeMode, coverGradient }) {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const contentAnim = useRef(new Animated.Value(30)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -125,7 +125,6 @@ function ProfileView({ userData, avatar, onEdit, onPrivacy, onAppearance, onNoti
       ? [{ icon: 'email-fast-outline', label: 'Verificar email', sub: 'Enviar token de verificación', color: Colors.cyan, onPress: onResendVerification }]
       : []),
     { icon: 'lock-outline', label: 'Privacidad', sub: 'Visibilidad · bloqueos', color: Colors.green, onPress: onPrivacy },
-    { icon: 'bell-outline', label: 'Notificaciones', sub: 'Push · email', color: Colors.accentCyan, onPress: onNotifications },
     { icon: 'weather-night', label: 'Apariencia', sub: themeMode === 'light' ? 'Tema claro activo' : 'Tema oscuro activo', color: Colors.yellow, onPress: onAppearance },
     { icon: 'logout', label: 'Cerrar sesión', sub: '', color: Colors.red, onPress: onLogout },
   ];
@@ -776,7 +775,6 @@ export default function ProfileScreen({ navigation, currentUser, setCurrentUser,
               onEdit={() => setEditing(true)}
               onPrivacy={handleOpenPrivacy}
               onAppearance={handleOpenAppearance}
-              onNotifications={() => navigation?.navigate('Notifications', { apiBaseUrl })}
               onEditAvatar={pickAvatar}
               onLogout={handleLogout}
               onResendVerification={handleResendVerification}
