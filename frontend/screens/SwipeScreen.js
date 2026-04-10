@@ -1,6 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Platform,
+  View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Platform, Image, Alert, ActivityIndicator,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler'; // npm: react-native-gesture-handler
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,14 +10,44 @@ import { Colors, Fonts, Radius, Shadows } from '../theme';
 const { width: W, height: H } = Dimensions.get('window');
 const SWIPE_THRESHOLD = W * 0.28;
 const ROTATION_FACTOR = 12;
-
-// ─── Datos de muestra ────────────────────────────────────────────────────────
-const PROFILES = [
-  { id: '1', initials: 'JS', name: 'Juan Sebastián', age: 26, city: 'CDMX', distance: '2km', job: 'Diseñador UX', compatibility: 87, tags: ['Música', 'Café', 'Diseño'], colors: ['#6D28D9', '#2d0a5e', '#0f1a3d'], accent: '#A78BFA' },
-  { id: '2', initials: 'CR', name: 'Camila Reyes', age: 24, city: 'CDMX', distance: '5km', job: 'Artista', compatibility: 92, tags: ['Arte', 'Viajes', 'Café'], colors: ['#9D174D', '#1a0533', '#0d2b3d'], accent: '#F472B6' },
-  { id: '3', initials: 'MR', name: 'Miguel Rodríguez', age: 28, city: 'CDMX', distance: '8km', job: 'Desarrollador', compatibility: 78, tags: ['Gaming', 'Tech', 'Música'], colors: ['#065F46', '#0d2b3d', '#1a0533'], accent: '#6EE7B7' },
-  { id: '4', initials: 'LP', name: 'Lucía Pérez', age: 25, city: 'CDMX', distance: '3km', job: 'Fotógrafa', compatibility: 81, tags: ['Foto', 'Viajes', 'Arte'], colors: ['#92400E', '#1a0533', '#2d1a0a'], accent: '#FCD34D' },
+const CARD_THEMES = [
+  { colors: ['#6D28D9', '#2d0a5e', '#0f1a3d'], accent: '#A78BFA' },
+  { colors: ['#9D174D', '#1a0533', '#0d2b3d'], accent: '#F472B6' },
+  { colors: ['#065F46', '#0d2b3d', '#1a0533'], accent: '#6EE7B7' },
+  { colors: ['#92400E', '#1a0533', '#2d1a0a'], accent: '#FCD34D' },
 ];
+
+function resolveMediaUrl(imagePath, apiBaseUrl) {
+  if (!imagePath) return '';
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+  return `${apiBaseUrl}${imagePath}`;
+}
+
+function getInitials(fullName = '', username = '') {
+  const words = (fullName || '').trim().split(' ').filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  return (username || 'U').slice(0, 2).toUpperCase();
+}
+
+function mapDiscoverUser(user, apiBaseUrl, index) {
+  const theme = CARD_THEMES[index % CARD_THEMES.length];
+  return {
+    id: user._id,
+    initials: getInitials(user.fullName, user.username),
+    name: user.fullName || user.username,
+    username: user.username || '',
+    city: user.city || 'Sin ciudad',
+    tags: Array.isArray(user.interests) ? user.interests.slice(0, 4) : [],
+    colors: theme.colors,
+    accent: theme.accent,
+    profileImage: resolveMediaUrl(user.profileImage, apiBaseUrl),
+  };
+}
 
 // ─── Indicador de compatibilidad ─────────────────────────────────────────────
 function CompatBar({ value }) {
@@ -90,7 +120,11 @@ function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
           <View style={cardStyles.avatarWrap}>
             <View style={[cardStyles.onlineRing, { borderColor: `${Colors.green}80` }]} />
             <View style={[cardStyles.avatar, { backgroundColor: `${profile.accent}33` }]}>
-              <Text style={[cardStyles.avatarText, { color: profile.accent }]}>{profile.initials}</Text>
+              {profile.profileImage ? (
+                <Image source={{ uri: profile.profileImage }} style={cardStyles.avatarImage} />
+              ) : (
+                <Text style={[cardStyles.avatarText, { color: profile.accent }]}>{profile.initials}</Text>
+              )}
             </View>
           </View>
 
@@ -110,15 +144,13 @@ function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
           <View style={cardStyles.info}>
             <View style={cardStyles.nameRow}>
               <Text style={cardStyles.name}>{profile.name}</Text>
-              <View style={cardStyles.ageBadge}><Text style={cardStyles.ageBadgeText}>{profile.age}</Text></View>
             </View>
-            <Text style={cardStyles.meta}>◎ {profile.city} · {profile.distance} · {profile.job}</Text>
+            <Text style={cardStyles.meta}>◎ {profile.city} · @{profile.username}</Text>
             <View style={cardStyles.tags}>
               {profile.tags.map(tag => (
                 <View key={tag} style={cardStyles.tag}><Text style={cardStyles.tagText}>{tag}</Text></View>
               ))}
             </View>
-            <CompatBar value={profile.compatibility} />
           </View>
         </Animated.View>
       </PanGestureHandler>
@@ -133,6 +165,7 @@ const cardStyles = StyleSheet.create({
   avatarWrap: { position: 'absolute', top: 18, right: 18, zIndex: 5 },
   onlineRing: { position: 'absolute', width: 60, height: 60, borderRadius: 30, borderWidth: 2, top: -6, left: -6, zIndex: 0 },
   avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  avatarImage: { width: 44, height: 44, borderRadius: 22 },
   avatarText: { fontFamily: Fonts.display, fontSize: 14, fontWeight: '700' },
   swipeLabel: { position: 'absolute', top: 28, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 10, zIndex: 10 },
   swipeLabelYes: { left: 18, backgroundColor: 'rgba(74,222,128,0.9)', transform: [{ rotate: '-20deg' }] },
@@ -141,8 +174,6 @@ const cardStyles = StyleSheet.create({
   info: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 },
   nameRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 6 },
   name: { fontFamily: Fonts.display, fontSize: 26, color: '#fff', letterSpacing: -0.5 },
-  ageBadge: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  ageBadgeText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#fff' },
   meta: { fontFamily: Fonts.sans, fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 8 },
   tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   tag: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
@@ -170,21 +201,82 @@ function ActionBtn({ onPress, size = 56, children, bg, border: bc, glowColor }) 
 }
 
 // ─── Screen principal ─────────────────────────────────────────────────────────
-export default function SwipeScreen({ navigation }) {
-  const [profiles, setProfiles] = React.useState(PROFILES);
+export default function SwipeScreen({ navigation, apiBaseUrl }) {
+  const [profiles, setProfiles] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [processingSwipe, setProcessingSwipe] = React.useState(false);
   const [lastAction, setLastAction] = React.useState(null);
 
+  const fetchDiscoverUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${apiBaseUrl}/friends/discover`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('No se pudo cargar Descubrir', payload.error || 'Error al obtener usuarios.');
+        setProfiles([]);
+        return;
+      }
+
+      const mapped = (Array.isArray(payload) ? payload : []).map((user, index) =>
+        mapDiscoverUser(user, apiBaseUrl, index)
+      );
+      setProfiles(mapped);
+    } catch (error) {
+      Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${apiBaseUrl}.`);
+      setProfiles([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBaseUrl]);
+
+  React.useEffect(() => {
+    fetchDiscoverUsers();
+  }, [fetchDiscoverUsers]);
+
+  const processSwipe = useCallback(async (direction) => {
+    if (processingSwipe || !profiles.length) return;
+
+    const target = profiles[0];
+    setProcessingSwipe(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/friends/swipe`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUserId: target.id,
+          direction,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('No se pudo procesar swipe', payload.error || 'Intenta nuevamente.');
+        return;
+      }
+
+      setProfiles((p) => p.slice(1));
+      setLastAction(direction === 'right' ? 'like' : 'skip');
+      setTimeout(() => setLastAction(null), 1500);
+    } catch (error) {
+      Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${apiBaseUrl}.`);
+    } finally {
+      setProcessingSwipe(false);
+    }
+  }, [apiBaseUrl, processingSwipe, profiles]);
+
   const handleSwipeLeft = useCallback(() => {
-    setProfiles(p => p.slice(1));
-    setLastAction('skip');
-    setTimeout(() => setLastAction(null), 1500);
-  }, []);
+    processSwipe('left');
+  }, [processSwipe]);
 
   const handleSwipeRight = useCallback(() => {
-    setProfiles(p => p.slice(1));
-    setLastAction('like');
-    setTimeout(() => setLastAction(null), 1500);
-  }, []);
+    processSwipe('right');
+  }, [processSwipe]);
 
   const triggerSwipe = (dir) => {
     if (profiles.length === 0) return;
@@ -200,7 +292,7 @@ export default function SwipeScreen({ navigation }) {
       <View style={styles.topbar}>
         <View>
           <Text style={styles.topTitle}>Descubrir</Text>
-          <Text style={styles.topSub}>▲ {profiles.length} personas cerca</Text>
+          <Text style={styles.topSub}>▲ {profiles.length} personas disponibles</Text>
         </View>
         <TouchableOpacity style={styles.filterBtn}>
           <Ionicons name="options-outline" size={18} color={Colors.textMuted} />
@@ -209,11 +301,16 @@ export default function SwipeScreen({ navigation }) {
 
       {/* Stack de tarjetas */}
       <View style={styles.stackArea}>
-        {profiles.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={Colors.purple} />
+            <Text style={styles.emptySub}>Cargando personas reales...</Text>
+          </View>
+        ) : profiles.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="sparkles-outline" size={44} color={Colors.purple} style={styles.emptyEmoji} />
-            <Text style={styles.emptyTitle}>Has visto a todos</Text>
-            <Text style={styles.emptySub}>Vuelve mañana para nuevas personas</Text>
+            <Text style={styles.emptyTitle}>No hay personas por mostrar</Text>
+            <Text style={styles.emptySub}>Aparecerán usuarios reales cuando haya disponibles.</Text>
           </View>
         ) : (
           profiles.slice(0, 3).reverse().map((profile, idx, arr) => {

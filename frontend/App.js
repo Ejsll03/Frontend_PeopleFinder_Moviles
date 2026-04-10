@@ -93,8 +93,17 @@ function MainTabs({ currentUser, setCurrentUser }) {
         ),
       }}
     >
-      <Tab.Screen name="Descubrir" component={SwipeScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="sparkles-outline" label="Descubrir" /> }} />
+      <Tab.Screen
+        name="Descubrir"
+        options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="sparkles-outline" label="Descubrir" /> }}
+      >
+        {(props) => (
+          <SwipeScreen
+            {...props}
+            apiBaseUrl={API_BASE_URL}
+          />
+        )}
+      </Tab.Screen>
       <Tab.Screen name="Chats" component={ChatScreen}
         options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} icon="chatbubble-ellipses-outline" label="Chats" /> }} />
       <Tab.Screen
