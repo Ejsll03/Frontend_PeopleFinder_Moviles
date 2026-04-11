@@ -144,6 +144,28 @@ export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseU
   const [data, setData] = useState({ firstName: '', lastName: '', username: '', email: '', password: '', interests: [], city: '', bio: '', avatar: null });
   const [loading, setLoading] = useState(false);
 
+  const buildProfileImagePart = async () => {
+    if (!data.avatar) return null;
+
+    // En web, FormData funciona mejor con Blob/File que con objeto { uri, type, name }.
+    if (Platform.OS === 'web') {
+      const response = await fetch(data.avatar);
+      const blob = await response.blob();
+      return {
+        value: blob,
+        fileName: `profile-${Date.now()}.jpg`,
+      };
+    }
+
+    return {
+      value: {
+        uri: data.avatar,
+        type: 'image/jpeg',
+        name: `profile-${Date.now()}.jpg`,
+      },
+    };
+  };
+
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -261,11 +283,12 @@ export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseU
         formData.append('bio', data.bio.trim());
       }
 
-      formData.append('profileImage', {
-        uri: data.avatar,
-        type: 'image/jpeg',
-        name: `profile-${Date.now()}.jpg`,
-      });
+      const imagePart = await buildProfileImagePart();
+      if (imagePart?.fileName) {
+        formData.append('profileImage', imagePart.value, imagePart.fileName);
+      } else if (imagePart?.value) {
+        formData.append('profileImage', imagePart.value);
+      }
 
       const registerResponse = await fetch(`${apiBaseUrl}/auth/register`, {
         method: 'POST',
@@ -275,7 +298,7 @@ export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseU
       const registerData = await registerResponse.json();
 
       if (!registerResponse.ok) {
-        Alert.alert('Error al registrar', registerData.message || 'No fue posible crear la cuenta.');
+        Alert.alert('Error al registrar', registerData.error || registerData.message || 'No fue posible crear la cuenta.');
         return;
       }
 
