@@ -53,6 +53,17 @@ function resolveApiBaseUrl() {
     return envUrl;
   }
 
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const host = window.location?.hostname || '';
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:5000';
+    }
+
+    if (host.endsWith('testerick.site')) {
+      return 'https://api.testerick.site';
+    }
+  }
+
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoClient?.hostUri;
   if (hostUri) {
     const host = hostUri.split(':')[0];
