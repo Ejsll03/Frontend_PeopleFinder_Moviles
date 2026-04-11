@@ -5,6 +5,7 @@ import {
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { io } from 'socket.io-client/dist/socket.io.js';
 import { Colors as BaseColors, Fonts, Radius, Shadows, useThemeMode } from '../theme';
 
 let Colors = BaseColors;
@@ -90,7 +91,16 @@ function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
     <Animated.View style={[cardStyles.wrapper, style, isTop && { transform: [{ translateX }, { translateY }, { rotate }] }]}>
       <PanGestureHandler onGestureEvent={onGestureEvent} onHandlerStateChange={onHandlerStateChange} enabled={isTop}>
         <Animated.View style={cardStyles.card}>
-          <LinearGradient colors={profile.colors} style={StyleSheet.absoluteFill} />
+          {profile.profileImage ? (
+            <Image source={{ uri: profile.profileImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          ) : (
+            <LinearGradient colors={profile.colors} style={StyleSheet.absoluteFill} />
+          )}
+
+          <LinearGradient
+            colors={['rgba(0,0,0,0.12)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.55)']}
+            style={StyleSheet.absoluteFill}
+          />
 
           <View style={[cardStyles.innerOrb, { width: 180, height: 180, top: -40, left: -40, backgroundColor: `${profile.accent}33` }]} />
           <View style={[cardStyles.innerOrb, { width: 140, height: 140, bottom: 60, right: -20, backgroundColor: `${profile.accent}22` }]} />
@@ -240,6 +250,36 @@ export default function SwipeScreen({ navigation, apiBaseUrl, currentUser }) {
     fetchDiscoverUsers();
   }, [fetchDiscoverUsers]);
 
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      fetchDiscoverUsers();
+    }, 12000);
+    return () => clearInterval(timer);
+  }, [fetchDiscoverUsers]);
+
+  React.useEffect(() => {
+    const userId = currentUser?.id || currentUser?._id;
+    if (!userId) return undefined;
+
+    const socket = io(apiBaseUrl, {
+      transports: ['websocket'],
+      withCredentials: true,
+      auth: { userId: String(userId) },
+      reconnection: true,
+    });
+
+    const handleDiscoverUpdated = () => {
+      fetchDiscoverUsers();
+    };
+
+    socket.on('discover:updated', handleDiscoverUpdated);
+
+    return () => {
+      socket.off('discover:updated', handleDiscoverUpdated);
+      socket.disconnect();
+    };
+  }, [apiBaseUrl, currentUser, fetchDiscoverUsers]);
+
   const processSwipe = useCallback(async (direction) => {
     if (processingSwipe || !profiles.length) return;
 
@@ -357,10 +397,18 @@ export default function SwipeScreen({ navigation, apiBaseUrl, currentUser }) {
         </ActionBtn>
       </View>
 
-      {!!lastAction && (
+      {!!lastAction ? (
         <View style={styles.hint}>
           <View style={styles.hintRow}>
             <Text style={styles.hintText}>{lastAction === 'like' ? 'Te gusta' : 'Pasaste'}</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.hint}>
+          <View style={styles.hintRow}>
+            <Ionicons name="arrow-back" size={12} color={Colors.textMuted} />
+            <Text style={styles.hintText}>pasar · desliza · aceptar</Text>
+            <Ionicons name="arrow-forward" size={12} color={Colors.textMuted} />
           </View>
         </View>
       )}

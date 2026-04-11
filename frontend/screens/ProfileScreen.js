@@ -138,12 +138,6 @@ function ProfileView({ userData, avatar, onEdit, onPrivacy, onAppearance, onEdit
           <View style={[styles.coverOrb, { backgroundColor: 'rgba(124,58,237,0.3)', width: 250, height: 250, top: -80, left: -60 }]} />
           <View style={[styles.coverOrb, { backgroundColor: 'rgba(236,72,153,0.25)', width: 180, height: 180, bottom: -40, right: -40 }]} />
         </View>
-        <TouchableOpacity style={styles.coverEditBtn}>
-          <View style={styles.coverEditRow}>
-            <MaterialCommunityIcons name="pencil" size={12} color="rgba(255,255,255,0.7)" />
-            <Text style={styles.coverEditText}>Portada</Text>
-          </View>
-        </TouchableOpacity>
         <View style={styles.avatarWrap}>
           <TouchableOpacity onPress={onEditAvatar} activeOpacity={0.8}>
             <Animated.View style={[styles.profileAvBorder, { transform: [{ scale: pulseAnim }] }]}>
@@ -191,7 +185,6 @@ function ProfileView({ userData, avatar, onEdit, onPrivacy, onAppearance, onEdit
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>INTERESES</Text>
-            <TouchableOpacity><Text style={styles.sectionEdit}>+ Añadir</Text></TouchableOpacity>
           </View>
           <View style={styles.interestsWrap}>
             {(userData.interests || []).map(i => (
@@ -793,9 +786,6 @@ const createStyles = (Colors) => StyleSheet.create({
   heroSection: { height: 200 },
   coverBg: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   coverOrb: { position: 'absolute', borderRadius: 999 },
-  coverEditBtn: { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  coverEditRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  coverEditText: { fontFamily: Fonts.sansMedium, fontSize: 11, color: 'rgba(255,255,255,0.7)' },
   avatarWrap: { position: 'absolute', bottom: -36, left: '50%', marginLeft: -40, alignItems: 'center' },
   profileAvBorder: { width: 80, height: 80, borderRadius: 40, padding: 3, backgroundColor: Colors.card },
   profileAv: { width: 74, height: 74, borderRadius: 37, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
@@ -817,7 +807,6 @@ const createStyles = (Colors) => StyleSheet.create({
   section: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   sectionTitle: { fontFamily: Fonts.sansMedium, fontSize: 10, color: Colors.textMuted, letterSpacing: 1.5 },
-  sectionEdit: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: Colors.accent },
   interestsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   interestPill: { paddingHorizontal: 13, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)' },
   interestPillText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: Colors.purple },

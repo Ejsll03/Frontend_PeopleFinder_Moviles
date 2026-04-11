@@ -147,7 +147,69 @@ export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseU
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
+  const validateStepOne = () => {
+    if (!data.avatar) {
+      Alert.alert('Foto requerida', 'Debes subir una imagen de perfil para continuar.');
+      return false;
+    }
+
+    if (!data.firstName.trim() || !data.lastName.trim()) {
+      Alert.alert('Campos incompletos', 'Nombre y apellido son obligatorios.');
+      return false;
+    }
+
+    if (data.firstName.trim().length < 2 || data.lastName.trim().length < 2) {
+      Alert.alert('Nombre inválido', 'Nombre y apellido deben tener al menos 2 caracteres.');
+      return false;
+    }
+
+    const username = data.username.trim();
+    if (!username) {
+      Alert.alert('Username requerido', 'Ingresa un username para continuar.');
+      return false;
+    }
+
+    const usernamePattern = /^[a-zA-Z0-9._]{3,20}$/;
+    if (!usernamePattern.test(username)) {
+      Alert.alert('Username inválido', 'Usa entre 3 y 20 caracteres: letras, números, punto o guion bajo.');
+      return false;
+    }
+
+    const email = data.email.trim().toLowerCase();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailPattern.test(email)) {
+      Alert.alert('Correo inválido', 'Ingresa un correo electrónico válido.');
+      return false;
+    }
+
+    if (!data.password || data.password.length < 8) {
+      Alert.alert('Contraseña inválida', 'La contraseña debe tener al menos 8 caracteres.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const validateStepTwo = () => {
+    if ((data.interests || []).length < 3) {
+      Alert.alert('Intereses insuficientes', 'Selecciona al menos 3 intereses para continuar.');
+      return false;
+    }
+    return true;
+  };
+
+  const validateFinalStep = () => {
+    if (!data.city.trim()) {
+      Alert.alert('Ciudad requerida', 'Ingresa tu ciudad para completar el registro.');
+      return false;
+    }
+    return true;
+  };
+
   const goNext = () => {
+    if (step === 0 && !validateStepOne()) return;
+    if (step === 1 && !validateStepTwo()) return;
+
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: -30, duration: 150, useNativeDriver: true }),
@@ -177,13 +239,11 @@ export default function RegisterScreen({ navigation, onRegisterSuccess, apiBaseU
   };
 
   const handleFinish = async () => {
-    if (!data.firstName.trim() || !data.lastName.trim() || !data.username.trim() || !data.email.trim() || !data.password.trim()) {
-      Alert.alert('Campos incompletos', 'Nombre, apellido, username, correo y contraseña son obligatorios.');
-      return;
-    }
+    if (!validateStepOne()) return;
+    if (!validateStepTwo()) return;
+    if (!validateFinalStep()) return;
 
-    if (!data.avatar) {
-      Alert.alert('Foto requerida', 'Debes subir una imagen de perfil para registrarte.');
+    if (loading) {
       return;
     }
 

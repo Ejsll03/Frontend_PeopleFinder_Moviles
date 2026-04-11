@@ -153,7 +153,6 @@ export default function LoginScreen({ navigation, onLoginSuccess, apiBaseUrl }) 
       {/* Fondo con orbes */}
       <Orb color1="rgba(124,58,237,0.6)" color2="transparent" style={{ top: -60, left: -60, width: 220, height: 220 }} />
       <Orb color1="rgba(236,72,153,0.5)" color2="transparent" style={{ top: 40, right: -40, width: 180, height: 180 }} />
-      <Orb color1="rgba(6,182,212,0.4)" color2="transparent" style={{ bottom: 80, left: '30%', width: 150, height: 150 }} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

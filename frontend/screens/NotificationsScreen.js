@@ -48,6 +48,15 @@ function resolveMessageSender(notification) {
   );
 }
 
+function isRejectedNotification(notification) {
+  const status = String(notification?.data?.status || '').toLowerCase();
+  if (status === 'rejected') return true;
+
+  const title = String(notification?.title || '').toLowerCase();
+  const body = String(notification?.body || '').toLowerCase();
+  return title.includes('rechazada') || body.includes('rechaz');
+}
+
 export default function NotificationsScreen({ navigation, route, apiBaseUrl: apiBaseUrlProp }) {
   const { colors, mode } = useThemeMode();
   Colors = colors;
@@ -193,6 +202,48 @@ export default function NotificationsScreen({ navigation, route, apiBaseUrl: api
     }
   };
 
+  const navigateToFriendsPanel = () => {
+    navigation?.navigate('Main', { screen: 'Amigos' });
+    navigation?.navigate('Amigos');
+  };
+
+  const navigateToChat = (notification) => {
+    const openChatId = notification?.data?.chatId || '';
+    const openWithUserId = resolveTargetUserId(notification);
+
+    navigation?.navigate('Main', {
+      screen: 'Chats',
+      params: {
+        openChatId,
+        openWithUserId,
+      },
+    });
+    navigation?.navigate('Chats', {
+      openChatId,
+      openWithUserId,
+    });
+  };
+
+  const handleNotificationPress = async (item) => {
+    if (!item?.isRead) {
+      await markOneAsRead(item._id);
+    }
+
+    if (item?.type === 'message') {
+      navigateToChat(item);
+      return;
+    }
+
+    if (item?.type === 'friend_match') {
+      navigateToFriendsPanel();
+      return;
+    }
+
+    if (isRejectedNotification(item)) {
+      return;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={pageGradient} style={StyleSheet.absoluteFill} />
@@ -230,7 +281,7 @@ export default function NotificationsScreen({ navigation, route, apiBaseUrl: api
           renderItem={({ item }) => (
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => !item.isRead && markOneAsRead(item._id)}
+              onPress={() => handleNotificationPress(item)}
               style={[styles.itemCard, !item.isRead && styles.itemCardUnread]}
             >
               <View style={styles.itemIcon}><NotificationIcon type={item.type} /></View>
