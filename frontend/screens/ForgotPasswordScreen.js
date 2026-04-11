@@ -34,6 +34,20 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
   const { colors } = useThemeMode();
   Colors = colors;
   styles = React.useMemo(() => createStyles(colors), [colors]);
+  const effectiveApiBaseUrl = React.useMemo(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return apiBaseUrl;
+    }
+
+    const host = window.location?.hostname || '';
+    const base = String(apiBaseUrl || '').trim();
+    const isLocalBase = base.includes('localhost') || base.includes('127.0.0.1');
+    if (host.endsWith('testerick.site') && isLocalBase) {
+      return 'https://api.testerick.site';
+    }
+
+    return apiBaseUrl;
+  }, [apiBaseUrl]);
 
   const [email, setEmail] = React.useState('');
   const [token, setToken] = React.useState('');
@@ -49,7 +63,7 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
 
     try {
       setLoading(true);
-      const response = await fetch(`${apiBaseUrl}/auth/reset-password`, {
+      const response = await fetch(`${effectiveApiBaseUrl}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -65,7 +79,7 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
       setRequested(true);
       Alert.alert('Revisa tu correo', data.message || 'Te enviamos un token para recuperar tu contraseña.');
     } catch (_error) {
-      Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${apiBaseUrl}.`);
+      Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${effectiveApiBaseUrl}.`);
     } finally {
       setLoading(false);
     }
@@ -85,7 +99,7 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
     try {
       setLoading(true);
       const verifyRes = await fetch(
-        `${apiBaseUrl}/auth/reset-password/verify?token=${encodeURIComponent(token.trim())}`,
+        `${effectiveApiBaseUrl}/auth/reset-password/verify?token=${encodeURIComponent(token.trim())}`,
         { method: 'GET', credentials: 'include' }
       );
       const verifyData = await verifyRes.json();
@@ -94,7 +108,7 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
         return;
       }
 
-      const response = await fetch(`${apiBaseUrl}/auth/reset-password/confirm`, {
+      const response = await fetch(`${effectiveApiBaseUrl}/auth/reset-password/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -117,7 +131,7 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
         },
       ]);
     } catch (_error) {
-      Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${apiBaseUrl}.`);
+      Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${effectiveApiBaseUrl}.`);
     } finally {
       setLoading(false);
     }
