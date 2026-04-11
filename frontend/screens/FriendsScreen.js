@@ -11,9 +11,25 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors as BaseColors, Fonts, Radius, useThemeMode } from '../theme';
 
 let Colors = BaseColors;
+const antiMarioConfig = {
+  listName: 28,
+  username: 22,
+  detailName: 36,
+  bio: 320,
+  city: 36,
+  interest: 22,
+};
+
+function antiMario(value = '', maxLength = 32) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  if (source.length <= maxLength) return source;
+  return `${source.slice(0, Math.max(1, maxLength - 1))}…`;
+}
 
 function resolveMediaUrl(imagePath, apiBaseUrl) {
   if (!imagePath) return '';
@@ -32,6 +48,24 @@ function initialsFromName(name = '', fallback = 'U') {
 
 function normalizeInterest(value = '') {
   return String(value || '').trim().toLowerCase();
+}
+
+function formatActivityDate(value) {
+  if (!value) return 'Sin fecha';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Sin fecha';
+  return parsed.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function sentStatusLabel(status = '') {
+  if (status === 'pending') return 'Pendiente';
+  if (status === 'rejected') return 'Rechazada';
+  if (status === 'accepted') return 'Aceptada';
+  return 'Enviada';
 }
 
 function FriendAvatar({ friend, size = 44, apiBaseUrl }) {
@@ -55,9 +89,12 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
   const pageGradient = mode === 'light' ? ['#F7F7FB', '#EEF2FF', '#F7F7FB'] : [Colors.bg, '#0d0818', Colors.bg];
 
   const [friends, setFriends] = React.useState([]);
+  const [sentInvitations, setSentInvitations] = React.useState([]);
+  const [rejectedByMe, setRejectedByMe] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [selectedFriend, setSelectedFriend] = React.useState(null);
+  const [processingReconsiderId, setProcessingReconsiderId] = React.useState(null);
   const currentInterestSet = React.useMemo(() => {
     const source = Array.isArray(currentUser?.interests) ? currentUser.interests : [];
     return new Set(source.map((interest) => normalizeInterest(interest)).filter(Boolean));
@@ -100,14 +137,39 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const response = await fetch(`${apiBaseUrl}/friends`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-      const payload = await response.json();
-      if (!response.ok) return;
+      const [friendsResponse, activityResponse] = await Promise.all([
+        fetch(`${apiBaseUrl}/friends`, {
+          method: 'GET',
+          credentials: 'include',
+        }),
+        fetch(`${apiBaseUrl}/friends/requests/activity`, {
+          method: 'GET',
+          credentials: 'include',
+        }),
+      ]);
 
-      setFriends(Array.isArray(payload) ? payload : []);
+      let friendsPayload = [];
+      try {
+        friendsPayload = await friendsResponse.json();
+      } catch (_error) {
+        friendsPayload = [];
+      }
+
+      if (friendsResponse.ok) {
+        setFriends(Array.isArray(friendsPayload) ? friendsPayload : []);
+      }
+
+      let activityPayload = {};
+      try {
+        activityPayload = await activityResponse.json();
+      } catch (_error) {
+        activityPayload = {};
+      }
+
+      if (activityResponse.ok) {
+        setSentInvitations(Array.isArray(activityPayload?.sentInvitations) ? activityPayload.sentInvitations : []);
+        setRejectedByMe(Array.isArray(activityPayload?.rejectedByMe) ? activityPayload.rejectedByMe : []);
+      }
     } catch (_error) {
       // Ignorado: el estado de carga mostrara fallback.
     } finally {
@@ -119,6 +181,13 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
   React.useEffect(() => {
     loadFriends();
   }, [loadFriends]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadFriends();
+      return undefined;
+    }, [loadFriends])
+  );
 
   const handleOpenChat = React.useCallback((friend) => {
     const friendId = friend?._id || friend?.id;
@@ -168,12 +237,82 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
     );
   }, [apiBaseUrl]);
 
+  const handleCancelSentInvitation = React.useCallback((invitation) => {
+    const invitationId = invitation?.id;
+    if (!invitationId || !apiBaseUrl) return;
+
+    Alert.alert(
+      'Cancelar invitación',
+      `¿Quieres cancelar la invitación enviada a ${invitation?.user?.fullName || invitation?.user?.username || 'este usuario'}?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${apiBaseUrl}/friends/requests/sent/${invitationId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+              });
+              const payload = await response.json();
+
+              if (!response.ok) {
+                Alert.alert('Error', payload?.error || 'No se pudo cancelar la invitación.');
+                return;
+              }
+
+              setSentInvitations((prev) => prev.filter((item) => String(item.id) !== String(invitationId)));
+            } catch (_error) {
+              Alert.alert('Error de conexión', 'No se pudo cancelar la invitación.');
+            }
+          },
+        },
+      ]
+    );
+  }, [apiBaseUrl]);
+
+  const handleAcceptRejected = React.useCallback(async (rejectionItem) => {
+    const requestId = rejectionItem?.id;
+    if (!requestId || !apiBaseUrl) return;
+
+    try {
+      setProcessingReconsiderId(requestId);
+      const response = await fetch(`${apiBaseUrl}/friends/requests/rejected/${requestId}/accept`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Error', payload?.error || 'No se pudo revertir el rechazo.');
+        return;
+      }
+
+      setRejectedByMe((prev) => prev.filter((item) => String(item.id) !== String(requestId)));
+
+      if (payload?.request) {
+        setSentInvitations((prev) => {
+          const exists = prev.some((item) => String(item.id) === String(payload.request.id));
+          if (exists) {
+            return prev.map((item) => (String(item.id) === String(payload.request.id) ? payload.request : item));
+          }
+          return [payload.request, ...prev];
+        });
+      }
+    } catch (_error) {
+      Alert.alert('Error de conexión', 'No se pudo revertir el rechazo.');
+    } finally {
+      setProcessingReconsiderId(null);
+    }
+  }, [apiBaseUrl]);
+
   const renderFriendItem = ({ item }) => (
     <View style={styles.friendItem}>
       <FriendAvatar friend={item} apiBaseUrl={apiBaseUrl} />
       <TouchableOpacity style={{ flex: 1, minWidth: 0 }} activeOpacity={0.8} onPress={() => handleOpenFriend(item)}>
-        <Text numberOfLines={1} style={styles.friendName}>{item.fullName || item.username || 'Amigo'}</Text>
-        <Text numberOfLines={1} style={styles.friendUser}>@{item.username || 'usuario'}</Text>
+        <Text numberOfLines={1} style={styles.friendName}>{antiMario(item.fullName || item.username || 'Amigo', antiMarioConfig.listName)}</Text>
+        <Text numberOfLines={1} style={styles.friendUser}>@{antiMario(item.username || 'usuario', antiMarioConfig.username)}</Text>
       </TouchableOpacity>
       <View style={styles.friendActions}>
         <TouchableOpacity style={[styles.friendBtn, styles.friendBtnChat]} activeOpacity={0.85} onPress={() => handleOpenChat(item)}>
@@ -186,6 +325,65 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
     </View>
   );
 
+  const renderActivityItem = (item, label, canCancel = false) => (
+    <View key={`${label}-${item.id}`} style={styles.activityItem}>
+      <FriendAvatar friend={item.user} apiBaseUrl={apiBaseUrl} size={36} />
+      <View style={styles.activityInfo}>
+        <Text numberOfLines={1} style={styles.activityName}>
+          {antiMario(item?.user?.fullName || item?.user?.username || 'Usuario', antiMarioConfig.listName)}
+        </Text>
+        <Text numberOfLines={1} style={styles.activityMeta}>
+          @{antiMario(item?.user?.username || 'usuario', antiMarioConfig.username)} · {label} · {formatActivityDate(item?.respondedAt || item?.createdAt)}
+        </Text>
+      </View>
+      {canCancel && (
+        <TouchableOpacity
+          style={styles.cancelInviteBtn}
+          activeOpacity={0.85}
+          onPress={() => handleCancelSentInvitation(item)}
+        >
+          <Text style={styles.cancelInviteText}>Cancelar</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderActivitySections = () => (
+    <View style={styles.activityWrap}>
+      <Text style={styles.activityTitle}>Actividad de solicitudes</Text>
+
+      <View style={styles.activitySection}>
+        <Text style={styles.activitySectionTitle}>Invitaciones enviadas</Text>
+        {sentInvitations.length > 0
+          ? sentInvitations.map((item) => renderActivityItem(item, sentStatusLabel(item?.status), item?.status === 'pending'))
+          : <Text style={styles.activityEmpty}>No tienes invitaciones enviadas por ahora.</Text>
+        }
+      </View>
+
+      <View style={styles.activitySection}>
+        <Text style={styles.activitySectionTitle}>Rechazos que efectuaste</Text>
+        {rejectedByMe.length > 0
+          ? rejectedByMe.map((item) => (
+            <View key={`rejected-wrap-${item.id}`} style={styles.rejectedItemWrap}>
+              {renderActivityItem(item, 'Rechazo')}
+              <TouchableOpacity
+                style={[styles.acceptRejectedBtn, processingReconsiderId === item.id && styles.acceptRejectedBtnDisabled]}
+                activeOpacity={0.85}
+                onPress={() => handleAcceptRejected(item)}
+                disabled={processingReconsiderId === item.id}
+              >
+                <Text style={styles.acceptRejectedText}>
+                  {processingReconsiderId === item.id ? 'Procesando...' : 'Aceptar ahora'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))
+          : <Text style={styles.activityEmpty}>Aún no has rechazado solicitudes.</Text>
+        }
+      </View>
+    </View>
+  );
+
   const renderList = () => (
     <FlatList
       data={friends}
@@ -194,6 +392,7 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
       contentContainerStyle={styles.listContent}
       refreshing={refreshing}
       onRefresh={() => loadFriends(true)}
+      ListHeaderComponent={renderActivitySections}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
           <Ionicons name="people-outline" size={28} color={Colors.textMuted} />
@@ -208,7 +407,10 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
     if (!selectedFriend) return null;
 
     const showCity = selectedFriend?.privacySettings?.showCity !== false;
-    const cityText = showCity ? (selectedFriend.city || 'Sin ciudad') : 'Ciudad oculta';
+    const cityText = antiMario(showCity ? (selectedFriend.city || 'Sin ciudad') : 'Ciudad oculta', antiMarioConfig.city);
+    const detailName = antiMario(selectedFriend.fullName || selectedFriend.username || 'Amigo', antiMarioConfig.detailName);
+    const detailUsername = antiMario(selectedFriend.username || 'usuario', antiMarioConfig.username);
+    const bioText = antiMario(selectedFriend.bio || 'Sin biografía por ahora.', antiMarioConfig.bio);
     const interests = Array.isArray(selectedFriend?.interests) ? selectedFriend.interests : [];
 
     return (
@@ -223,12 +425,12 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
 
         <View style={styles.detailCard}>
           <FriendAvatar friend={selectedFriend} size={76} apiBaseUrl={apiBaseUrl} />
-          <Text style={styles.detailName}>{selectedFriend.fullName || selectedFriend.username || 'Amigo'}</Text>
-          <Text style={styles.detailUsername}>@{selectedFriend.username || 'usuario'}</Text>
+          <Text style={styles.detailName} numberOfLines={1}>{detailName}</Text>
+          <Text style={styles.detailUsername} numberOfLines={1}>@{detailUsername}</Text>
 
           <View style={styles.detailSection}>
             <Text style={styles.detailLabel}>BIO</Text>
-            <Text style={styles.detailValue}>{selectedFriend.bio || 'Sin biografía por ahora.'}</Text>
+            <Text style={styles.detailValue}>{bioText}</Text>
           </View>
 
           <View style={styles.detailSection}>
@@ -240,12 +442,12 @@ export default function FriendsScreen({ apiBaseUrl, currentUser, navigation }) {
             <Text style={styles.detailLabel}>INTERESES</Text>
             {interests.length > 0 ? (
               <View style={styles.tagsWrap}>
-                {interests.map((interest) => (
+                {interests.map((interest, interestIndex) => (
                   <View
-                    key={`${selectedFriend._id}-${interest}`}
+                    key={`${selectedFriend._id}-interest-${interestIndex}`}
                     style={[styles.tag, currentInterestSet.has(normalizeInterest(interest)) && styles.tagCommon]}
                   >
-                    <Text style={[styles.tagText, currentInterestSet.has(normalizeInterest(interest)) && styles.tagCommonText]}>{interest}</Text>
+                    <Text style={[styles.tagText, currentInterestSet.has(normalizeInterest(interest)) && styles.tagCommonText]} numberOfLines={1}>{antiMario(interest, antiMarioConfig.interest)}</Text>
                   </View>
                 ))}
               </View>
@@ -315,6 +517,97 @@ const createStyles = (Colors) => StyleSheet.create({
   friendBtnDelete: {
     backgroundColor: 'rgba(239,68,68,0.12)',
     borderColor: 'rgba(239,68,68,0.35)',
+  },
+  activityWrap: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: Radius.lg,
+    padding: 12,
+    marginBottom: 10,
+  },
+  activityTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 16,
+    color: Colors.text,
+    marginBottom: 10,
+  },
+  activitySection: {
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  activitySectionTitle: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginBottom: 8,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+  },
+  activityInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  activityName: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: Colors.text,
+  },
+  activityMeta: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  cancelInviteBtn: {
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderRadius: Radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  cancelInviteText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11,
+    color: Colors.red,
+  },
+  activityEmpty: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginBottom: 6,
+  },
+  rejectedItemWrap: {
+    marginBottom: 8,
+  },
+  acceptRejectedBtn: {
+    marginTop: -2,
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.35)',
+    backgroundColor: 'rgba(34,197,94,0.14)',
+    borderRadius: Radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  acceptRejectedBtnDisabled: {
+    opacity: 0.6,
+  },
+  acceptRejectedText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11,
+    color: Colors.green,
   },
   emptyWrap: { alignItems: 'center', marginTop: 70, paddingHorizontal: 20 },
   emptyTitle: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: Colors.text, marginTop: 10 },

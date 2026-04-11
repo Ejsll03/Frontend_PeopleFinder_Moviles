@@ -19,6 +19,19 @@ const CARD_THEMES = [
   { colors: ['#065F46', '#0d2b3d', '#1a0533'], accent: '#6EE7B7' },
   { colors: ['#92400E', '#1a0533', '#2d1a0a'], accent: '#FCD34D' },
 ];
+const antiMarioConfig = {
+  name: 28,
+  username: 20,
+  city: 28,
+  interest: 16,
+};
+
+function antiMario(value = '', maxLength = 32) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  if (source.length <= maxLength) return source;
+  return `${source.slice(0, Math.max(1, maxLength - 1))}…`;
+}
 
 function resolveMediaUrl(imagePath, apiBaseUrl) {
   if (!imagePath) return '';
@@ -43,17 +56,21 @@ function normalizeInterest(value = '') {
 
 function mapDiscoverUser(user, apiBaseUrl, index, currentInterestSet) {
   const theme = CARD_THEMES[index % CARD_THEMES.length];
-  const tags = Array.isArray(user.interests) ? user.interests.slice(0, 4) : [];
-  const commonInterests = tags.filter((tag) => currentInterestSet.has(normalizeInterest(tag)));
+  const rawTags = Array.isArray(user.interests)
+    ? user.interests.slice(0, 4).map((tag) => String(tag || '').trim()).filter(Boolean)
+    : [];
+  const commonInterests = rawTags.filter((tag) => currentInterestSet.has(normalizeInterest(tag)));
+  const tags = rawTags.map((tag) => antiMario(tag, antiMarioConfig.interest));
+  const commonInterestsDisplay = commonInterests.map((tag) => antiMario(tag, antiMarioConfig.interest));
 
   return {
     id: user._id,
     initials: getInitials(user.fullName, user.username),
-    name: user.fullName || user.username,
-    username: user.username || '',
-    city: user.city || 'Sin ciudad',
+    name: antiMario(user.fullName || user.username, antiMarioConfig.name),
+    username: antiMario(user.username || '', antiMarioConfig.username),
+    city: antiMario(user.city || 'Sin ciudad', antiMarioConfig.city),
     tags,
-    commonInterests,
+    commonInterests: commonInterestsDisplay,
     colors: theme.colors,
     accent: theme.accent,
     profileImage: resolveMediaUrl(user.profileImage, apiBaseUrl),
@@ -131,15 +148,15 @@ function ProfileCard({ profile, onSwipeLeft, onSwipeRight, isTop, style }) {
 
           <View style={cardStyles.info}>
             <View style={cardStyles.nameRow}>
-              <Text style={cardStyles.name}>{profile.name}</Text>
+              <Text style={cardStyles.name} numberOfLines={1} ellipsizeMode="tail">{profile.name}</Text>
             </View>
-            <Text style={cardStyles.meta}>◎ {profile.city} · @{profile.username}</Text>
+            <Text style={cardStyles.meta} numberOfLines={1} ellipsizeMode="tail">◎ {profile.city} · @{profile.username}</Text>
             <View style={cardStyles.tags}>
-              {profile.tags.map((tag) => {
+              {profile.tags.map((tag, tagIndex) => {
                 const isCommon = profile.commonInterests.includes(tag);
                 return (
-                  <View key={tag} style={[cardStyles.tag, isCommon && cardStyles.tagCommon]}>
-                    <Text style={[cardStyles.tagText, isCommon && cardStyles.tagCommonText]}>{tag}</Text>
+                  <View key={`${profile.id}-tag-${tagIndex}`} style={[cardStyles.tag, isCommon && cardStyles.tagCommon]}>
+                    <Text style={[cardStyles.tagText, isCommon && cardStyles.tagCommonText]} numberOfLines={1} ellipsizeMode="tail">{tag}</Text>
                   </View>
                 );
               })}
@@ -169,7 +186,7 @@ const cardStyles = StyleSheet.create({
   name: { fontFamily: Fonts.display, fontSize: 26, color: '#fff', letterSpacing: -0.5 },
   meta: { fontFamily: Fonts.sans, fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 8 },
   tags: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  tag: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  tag: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, maxWidth: 128 },
   tagText: { fontFamily: Fonts.sansMedium, fontSize: 11, color: 'rgba(255,255,255,0.85)' },
   tagCommon: { backgroundColor: 'rgba(74,222,128,0.2)', borderColor: 'rgba(74,222,128,0.45)' },
   tagCommonText: { color: '#A7F3D0' },
@@ -302,7 +319,7 @@ export default function SwipeScreen({ navigation, apiBaseUrl, currentUser }) {
         return;
       }
 
-      setProfiles((p) => p.slice(1));
+      setProfiles((prev) => prev.filter((profile) => profile.id !== target.id));
       setLastAction(direction === 'right' ? 'like' : 'skip');
       setTimeout(() => setLastAction(null), 1500);
     } catch (_error) {
@@ -368,7 +385,7 @@ export default function SwipeScreen({ navigation, apiBaseUrl, currentUser }) {
         ) : (
           profiles.slice(0, 3).reverse().map((profile, idx, arr) => {
             const position = arr.length - 1 - idx;
-            const isTop = position === arr.length - 1;
+            const isTop = idx === arr.length - 1;
             const scale = 1 - (position * 0.035);
             const translateY = position * 10;
             const opacity = 0.5 + position * 0.25;

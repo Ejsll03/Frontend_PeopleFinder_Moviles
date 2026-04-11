@@ -10,6 +10,21 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors as BaseColors, Fonts, Radius, Shadows, useThemeMode } from '../theme';
 
 let Colors = BaseColors;
+const antiMarioConfig = {
+  chatName: 28,
+  chatPreview: 70,
+  headerName: 30,
+  headerStatus: 54,
+  messageText: 700,
+  searchInput: 50,
+};
+
+function antiMario(value = '', maxLength = 32) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  if (source.length <= maxLength) return source;
+  return `${source.slice(0, Math.max(1, maxLength - 1))}…`;
+}
 
 function normalizeId(value) {
   if (!value) return '';
@@ -266,8 +281,8 @@ function mapChatToItem(chat, currentUserId, apiBaseUrl) {
     participants.find(
       (participant) => normalizeId(participant?._id || participant?.id) !== normalizeId(currentUserId)
     ) || participants[0] || null;
-  const fullName = (other?.fullName || other?.username || 'Chat').trim();
-  const initials = fullName
+  const fullNameRaw = (other?.fullName || other?.username || 'Chat').trim();
+  const initials = fullNameRaw
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -278,8 +293,8 @@ function mapChatToItem(chat, currentUserId, apiBaseUrl) {
   return {
     id: normalizeId(chat?._id || chat?.id),
     userId: normalizeId(other?._id || other?.id),
-    name: fullName,
-    lastMsg: chat?.lastMessage || 'Sin mensajes todavía',
+    name: antiMario(fullNameRaw, antiMarioConfig.chatName),
+    lastMsg: antiMario(chat?.lastMessage || 'Sin mensajes todavía', antiMarioConfig.chatPreview),
     time: chat?.lastMessageAt
       ? new Date(chat.lastMessageAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
       : '',
@@ -307,7 +322,7 @@ function mapMessageToItem(message, currentUserId, apiBaseUrl, currentUserAvatarU
 
   return {
     id: normalizeId(message?._id || message?.id) || `${Date.now()}`,
-    text: message?.text || '',
+    text: antiMario(message?.text || '', antiMarioConfig.messageText),
     sent: isSent,
     time: date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
     type: message?.type || (message?.imageUrl ? 'image' : 'text'),
@@ -666,14 +681,16 @@ export default function ChatScreen({ route, apiBaseUrl, currentUser }) {
 
   const sendMessage = useCallback(() => {
     if (!activeChat || !socketRef.current) return;
-    if (!input.trim()) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput) return;
+    const limitedText = antiMario(trimmedInput, antiMarioConfig.messageText);
 
     const clientMessageId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const pendingMessage = {
       id: clientMessageId,
       clientMessageId,
-      text: input.trim(),
+      text: limitedText,
       sent: true,
       time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
       type: 'text',
@@ -686,7 +703,7 @@ export default function ChatScreen({ route, apiBaseUrl, currentUser }) {
 
     socketRef.current.emit('send_message', {
       chatId: activeChat,
-      text: input.trim(),
+      text: limitedText,
       clientMessageId,
     });
 
@@ -727,7 +744,7 @@ export default function ChatScreen({ route, apiBaseUrl, currentUser }) {
         <Text style={styles.sideTitle}>Mensajes</Text>
         <View style={styles.searchWrap}>
           <Text style={styles.searchIcon}>⌕</Text>
-          <TextInput style={styles.searchInput} placeholder="Buscar..." placeholderTextColor={Colors.textMuted} />
+          <TextInput style={styles.searchInput} placeholder="Buscar..." placeholderTextColor={Colors.textMuted} maxLength={antiMarioConfig.searchInput} />
         </View>
       </View>
 
@@ -767,10 +784,10 @@ export default function ChatScreen({ route, apiBaseUrl, currentUser }) {
           {activeContact?.online && <View style={styles.onlineDot} />}
         </View>
         <View style={styles.headInfo}>
-          <Text style={styles.headName}>{activeContact?.name}</Text>
+          <Text style={styles.headName} numberOfLines={1}>{antiMario(activeContact?.name, antiMarioConfig.headerName)}</Text>
           <View style={styles.headStatus}>
             <View style={[styles.statusDot, !(activeContact?.showOnlineStatus && activeContact?.isOnline) && styles.statusDotMuted]} />
-            <Text style={styles.headStatusText}>{activeContactSubtitle || (connected ? 'Conectado en tiempo real' : 'Reconectando...')}</Text>
+            <Text style={styles.headStatusText} numberOfLines={1}>{antiMario(activeContactSubtitle || (connected ? 'Conectado en tiempo real' : 'Reconectando...'), antiMarioConfig.headerStatus)}</Text>
           </View>
         </View>
       </View>
@@ -800,6 +817,7 @@ export default function ChatScreen({ route, apiBaseUrl, currentUser }) {
             placeholder="Escribe algo..."
             placeholderTextColor={Colors.textMuted}
             multiline
+            maxLength={antiMarioConfig.messageText}
             onSubmitEditing={sendMessage}
           />
           <TouchableOpacity>
