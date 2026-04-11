@@ -42,7 +42,8 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
     const host = window.location?.hostname || '';
     const base = String(apiBaseUrl || '').trim();
     const isLocalBase = base.includes('localhost') || base.includes('127.0.0.1');
-    if (host.endsWith('testerick.site') && isLocalBase) {
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+    if (!isLocalHost && isLocalBase) {
       return 'https://api.testerick.site';
     }
 

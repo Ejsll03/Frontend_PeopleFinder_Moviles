@@ -59,9 +59,8 @@ function resolveApiBaseUrl() {
       return 'http://localhost:5000';
     }
 
-    if (host.endsWith('testerick.site')) {
-      return 'https://api.testerick.site';
-    }
+    // En cualquier dominio web desplegado (testerick.site o vercel.app), usa la API pública.
+    return 'https://api.testerick.site';
   }
 
   const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoClient?.hostUri;
