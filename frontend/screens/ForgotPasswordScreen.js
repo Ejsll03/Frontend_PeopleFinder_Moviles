@@ -77,8 +77,19 @@ export default function ForgotPasswordScreen({ navigation, apiBaseUrl }) {
         return;
       }
 
+      const hasDebugToken = Boolean(data?.debugToken);
+      if (hasDebugToken) {
+        setToken(String(data.debugToken));
+        Alert.alert(
+          'Correo no disponible',
+          'No se pudo enviar el correo. Se cargó un token temporal para que puedas continuar.'
+        );
+      }
+
       setRequested(true);
-      Alert.alert('Revisa tu correo', data.message || 'Te enviamos un token para recuperar tu contraseña.');
+      if (!hasDebugToken) {
+        Alert.alert('Revisa tu correo', data.message || 'Te enviamos un token para recuperar tu contraseña.');
+      }
     } catch (_error) {
       Alert.alert('Error de conexión', `No se pudo conectar con el servidor en ${effectiveApiBaseUrl}.`);
     } finally {
